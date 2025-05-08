@@ -221,14 +221,21 @@ export const ColorModeContext = createContext({
 });
 
 export const useMode = () => {
-  const [mode, setMode] = useState("dark");
+  // Kiểm tra localStorage khi khởi tạo state
+  const [mode, setMode] = useState(
+    localStorage.getItem("themeMode") || "dark"
+  );
 
   const colorMode = useMemo(
     () => ({
-      toggleColorMode: () =>
-        setMode((prev) => (prev === "light" ? "dark" : "light")),
+      toggleColorMode: () => {
+        const newMode = mode === "light" ? "dark" : "light";
+        setMode(newMode);
+        // Lưu vào localStorage khi chuyển đổi theme
+        localStorage.setItem("themeMode", newMode);
+      },
     }),
-    []
+    [mode]
   );
 
   const theme = useMemo(() => createTheme(themeSettings(mode)), [mode]);
