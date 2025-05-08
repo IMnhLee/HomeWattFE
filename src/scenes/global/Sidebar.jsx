@@ -97,12 +97,19 @@ const ProSidebar = ({
             { title: "Applicant", to: "/monitoring/app", icon: <SpeedIcon /> },
             { title: "Usage-by-location", to: "/monitoring/usagebylocation", icon: <TimelineOutlinedIcon /> },
             { title: "Emission", to: "/monitoring/emission", icon: <Co2OutlinedIcon /> },
-            { title: "Setting", to: "/monitoring/setting", icon: <SettingsOutlinedIcon /> },
           ],
           defaultOpen: true, // Thêm lại defaultOpen cho Dashboard
         },
         { title:"Electrical", to: "/electrical", icon: <AccountTreeOutlinedIcon /> },
         { title: "Report", to: "/report", icon: <SummarizeOutlinedIcon /> },
+      ],
+    },
+    {
+      title: "Manage Devices",
+      items: [
+        { title: "Devices", to: "/devices", icon: <FindInPageOutlinedIcon /> },
+        { title: "Settings", to: "/setting", icon: <SettingsOutlinedIcon /> },
+        { title: "Statistics", to: "/statistics", icon: <QueryStatsOutlinedIcon /> },
       ],
     },
     {
@@ -230,6 +237,7 @@ const ProSidebar = ({
                         icon={item.icon}
                         selected={selected}
                         setSelected={setSelected}
+                        setToggled={setToggled}
                       />
                     )
                   )}

@@ -9,7 +9,6 @@ import Sidebar from "./scenes/global/Sidebar";
 import Dashboard from "./scenes/dashboard";
 import Team from "./scenes/team";
 
-import Bar from "./scenes/bar";
 import Form from "./scenes/form";
 import FAQ from "./scenes/faq";
 import Login from "./scenes/login";
@@ -18,6 +17,7 @@ import Appliances from "./scenes/appliances";
 import Setting from "./scenes/setting";
 import Emission from "./scenes/emission";
 import Location from "./scenes/location";
+import Devices from "./scenes/devices";
 function App() {
 
 const [theme, colorMode] = useMode();
@@ -72,8 +72,8 @@ useEffect(() => {
                     <Route path="/monitoring/app" element={<Appliances />} />
                     <Route path ="/monitoring/emission" element={<Emission/>}/>
                     <Route path="/monitoring/usagebylocation" element={<Location />} />
-                    <Route path ="/monitoring/setting" element={<Setting/>}/>
-                    <Route path="/bar" element={<Bar />} />
+                    <Route path ="/setting" element={<Setting/>}/>
+                    <Route path="/devices" element={<Devices/>}></Route>
                     <Route path="/form" element={<Form />} />
                     <Route path="/faq" element={<FAQ />} />
                   </Routes>
