@@ -17,7 +17,10 @@ import Appliances from "./scenes/appliances";
 import Setting from "./scenes/setting";
 import Emission from "./scenes/emission";
 import Location from "./scenes/location";
-import Devices from "./scenes/devices";
+import EnergyDeviceList from "./scenes/devices/EnergyDeviceList";
+import FloorRoomManagement from "./scenes/devices/FloorRoomManagement";
+import MeasurementDevices from "./scenes/devices/MeasurementDevices";
+
 function App() {
 
 const [theme, colorMode] = useMode();
@@ -73,7 +76,9 @@ useEffect(() => {
                     <Route path ="/monitoring/emission" element={<Emission/>}/>
                     <Route path="/monitoring/usagebylocation" element={<Location />} />
                     <Route path ="/setting" element={<Setting/>}/>
-                    <Route path="/devices" element={<Devices/>}></Route>
+                    <Route path="/devices/list" element={<EnergyDeviceList/>}></Route>
+                    <Route path="/devices/room" element={<FloorRoomManagement/>}></Route>
+                    <Route path="/devices/measurement" element={<MeasurementDevices/>}></Route>
                     <Route path="/form" element={<Form />} />
                     <Route path="/faq" element={<FAQ />} />
                   </Routes>

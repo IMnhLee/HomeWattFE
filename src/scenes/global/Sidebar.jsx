@@ -19,6 +19,9 @@ import SummarizeOutlinedIcon from "@mui/icons-material/SummarizeOutlined";
 import QueryStatsOutlinedIcon from "@mui/icons-material/QueryStatsOutlined";
 import FindInPageOutlinedIcon from "@mui/icons-material/FindInPageOutlined";
 import SettingsOutlinedIcon from '@mui/icons-material/SettingsOutlined';
+import DevicesOtherOutlinedIcon from '@mui/icons-material/DevicesOtherOutlined';
+import ApartmentOutlinedIcon from '@mui/icons-material/ApartmentOutlined';
+import ElectricMeterOutlinedIcon from '@mui/icons-material/ElectricMeterOutlined';
 
 import { FaAngleDoubleLeft, FaAngleDoubleRight } from "react-icons/fa";
 
@@ -107,7 +110,9 @@ const ProSidebar = ({
     {
       title: "Manage Devices",
       items: [
-        { title: "Devices", to: "/devices", icon: <FindInPageOutlinedIcon /> },
+        { title: "DevicesList", to: "/devices/list", icon: <DevicesOtherOutlinedIcon /> },
+        { title: "Floor&Room", to: "/devices/room", icon: <ApartmentOutlinedIcon /> },
+        { title: "Monitoring", to: "/devices/measurement", icon: <ElectricMeterOutlinedIcon /> },
         { title: "Settings", to: "/setting", icon: <SettingsOutlinedIcon /> },
         { title: "Statistics", to: "/statistics", icon: <QueryStatsOutlinedIcon /> },
       ],
