@@ -57,7 +57,7 @@ const MeasurementDevices = () => {
 
   // Enhanced energy-consuming devices with room and floor info
   const [energyDevices, setEnergyDevices] = useState([
-    { id: 1, name: "TV", room: "Living Room", floor: "1st Floor" },
+    { id: 1, name: "TV", room: "", floor: "Tầng 1" },
     { id: 2, name: "Air Conditioner", room: "Bedroom", floor: "1st Floor" },
     { id: 3, name: "Refrigerator", room: "Kitchen", floor: "1st Floor" },
     { id: 4, name: "Microwave", room: "Kitchen", floor: "1st Floor" },
@@ -349,7 +349,19 @@ const MeasurementDevices = () => {
   // Get device name by ID - include room and floor in display
   const getDeviceName = (deviceId) => {
     const device = energyDevices.find(d => d.id === deviceId);
-    return device ? `${device.name} (${device.room}, ${device.floor})` : "Unknown";
+    if (!device) return "Unknown";
+    
+    // Only add location info if room or floor exists
+    if (device.room || device.floor) {
+      const locationInfo = [
+        device.room && device.room.trim(),
+        device.floor && device.floor.trim()
+      ].filter(Boolean).join(", ");
+      
+      return `${device.name} (${locationInfo})`;
+    }
+    
+    return device.name;
   };
 
   // Filtered devices for pagination
@@ -721,7 +733,7 @@ const MeasurementDevices = () => {
             >
               <Box>
                 <FormControl fullWidth>
-                  <InputLabel id="floor-filter-label" sx={{ fontSize: "16px" }}>Floor</InputLabel>
+                  <InputLabel id="floor-filter-label" sx={{ fontSize: "16px", "&.Mui-focused": {color: colors.primary[100]} }}>Floor</InputLabel>
                   <Select
                     labelId="floor-filter-label"
                     value={floorFilter}
@@ -739,7 +751,7 @@ const MeasurementDevices = () => {
               </Box>
               <Box>
                 <FormControl fullWidth>
-                  <InputLabel id="room-filter-label" sx={{ fontSize: "16px" }}>Room</InputLabel>
+                  <InputLabel id="room-filter-label" sx={{ fontSize: "16px", "&.Mui-focused": {color: colors.primary[100]} }}>Room</InputLabel>
                   <Select
                     labelId="room-filter-label"
                     value={roomFilter}
@@ -800,7 +812,7 @@ const MeasurementDevices = () => {
                 setFloorFilter("All");
                 setRoomFilter("All");
               }} 
-              sx={{ fontSize: "16px" }}
+              sx={{ fontSize: "16px", color: colors.primary[100] }}
               color="primary"
             >
               Clear Filters
