@@ -20,6 +20,7 @@ import Location from "./scenes/location";
 import EnergyDeviceList from "./scenes/devices/EnergyDeviceList";
 import FloorRoomManagement from "./scenes/devices/FloorRoomManagement";
 import MeasurementDevices from "./scenes/devices/MeasurementDevices";
+import ConfigBill from "./scenes/bill/configBill";
 
 function App() {
 
@@ -79,6 +80,7 @@ useEffect(() => {
                     <Route path="/devices/list" element={<EnergyDeviceList/>}></Route>
                     <Route path="/devices/room" element={<FloorRoomManagement/>}></Route>
                     <Route path="/devices/measurement" element={<MeasurementDevices/>}></Route>
+                    <Route path="/bill/config" element={<ConfigBill/>}></Route>
                     <Route path="/form" element={<Form />} />
                     <Route path="/faq" element={<FAQ />} />
                   </Routes>

@@ -101,18 +101,25 @@ const ProSidebar = ({
             { title: "Usage-by-location", to: "/monitoring/usagebylocation", icon: <TimelineOutlinedIcon /> },
             { title: "Emission", to: "/monitoring/emission", icon: <Co2OutlinedIcon /> },
           ],
-          defaultOpen: true, // Thêm lại defaultOpen cho Dashboard
+          defaultOpen: false, // Thêm lại defaultOpen cho Dashboard
         },
-        { title:"Electrical", to: "/electrical", icon: <AccountTreeOutlinedIcon /> },
+        { title:"Bill Config", to: "/bill/config", icon: <AccountTreeOutlinedIcon /> },
         { title: "Report", to: "/report", icon: <SummarizeOutlinedIcon /> },
       ],
     },
     {
       title: "Manage Devices",
       items: [
-        { title: "DevicesList", to: "/devices/list", icon: <DevicesOtherOutlinedIcon /> },
-        { title: "Floor&Room", to: "/devices/room", icon: <ApartmentOutlinedIcon /> },
-        { title: "Monitoring", to: "/devices/measurement", icon: <ElectricMeterOutlinedIcon /> },
+        {
+          title: "Devices",
+          icon: <DashboardOutlinedIcon />,
+          subItems: [
+            { title: "List", to: "/devices/list", icon: <DevicesOtherOutlinedIcon /> },
+            { title: "Floor&Room", to: "/devices/room", icon: <ApartmentOutlinedIcon /> },
+            { title: "Monitoring", to: "/devices/measurement", icon: <ElectricMeterOutlinedIcon /> },
+          ],
+          defaultOpen: false, // Thêm lại defaultOpen cho Dashboard
+        },
         { title: "Settings", to: "/setting", icon: <SettingsOutlinedIcon /> },
         { title: "Statistics", to: "/statistics", icon: <QueryStatsOutlinedIcon /> },
       ],
