@@ -1,7 +1,8 @@
 import { useState } from "react";
 import { Box, Button, TextField, Typography, useTheme, 
   Card, CardContent, IconButton, Divider, Switch,
-  FormControlLabel, Dialog, DialogActions, DialogContent, DialogTitle } from "@mui/material";
+  FormControlLabel, Dialog, DialogActions, DialogContent, DialogTitle, 
+  useMediaQuery } from "@mui/material";
 import { tokens } from "../../theme";
 import Header from "../../components/Header";
 import AddIcon from "@mui/icons-material/Add";
@@ -13,6 +14,11 @@ import axios from "axios";
 const ConfigBill = () => {
   const theme = useTheme();
   const colors = tokens(theme.palette.mode);
+  
+  // Responsive breakpoints
+  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
+  const isTablet = useMediaQuery(theme.breakpoints.down('md'));
+  const isLargeScreen = useMediaQuery(theme.breakpoints.up('lg'));
 
   const [loading, setLoading] = useState(false);
 
@@ -194,7 +200,7 @@ const ConfigBill = () => {
   };
 
   return (
-    <Box m="20px">
+    <Box m={{ xs: "10px", sm: "20px" }}>
       <Header 
         title="ELECTRICITY BILL CONFIGURATION" 
         subtitle="Set up pricing tiers and notification parameters" 
@@ -202,15 +208,26 @@ const ConfigBill = () => {
       
       <Box
         display="grid"
-        gridTemplateColumns="repeat(12, 1fr)"
-        gap="20px"
+        gridTemplateColumns={{ xs: "1fr", md: "repeat(12, 1fr)" }}
+        gap={{ xs: "15px", sm: "20px" }}
       >
         {/* Price Tiers */}
-        <Box gridColumn="span 8">
-          <Card sx={{ backgroundColor: colors.primary[400], boxShadow: 3, mb: 2 }}>
-            <CardContent>
-              <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
-                <Typography variant="h4" color={colors.grey[100]} fontWeight="bold">
+        <Box gridColumn={{ xs: "span 12", md: "span 8" }}>
+          <Card sx={{ backgroundColor: colors.primary[400], boxShadow: 3, mb: { xs: 1, sm: 2 } }}>
+            <CardContent sx={{ p: { xs: 1.5, sm: 3 } }}>
+              <Box 
+                display="flex" 
+                flexDirection={{ xs: "column", sm: "row" }}
+                justifyContent="space-between" 
+                alignItems={{ xs: "stretch", sm: "center" }}
+                mb={2}
+                gap={1}
+              >
+                <Typography 
+                  variant={isMobile ? "h5" : "h4"} 
+                  color={colors.grey[100]} 
+                  fontWeight="bold"
+                >
                   Price Tiers
                 </Typography>
                 <Button
@@ -218,6 +235,8 @@ const ConfigBill = () => {
                   color="secondary"
                   startIcon={<AddIcon />}
                   onClick={() => openTierDialog()}
+                  size={isMobile ? "small" : "medium"}
+                  sx={{ alignSelf: { xs: "stretch", sm: "auto" } }}
                 >
                   Add Tier
                 </Button>
@@ -229,42 +248,92 @@ const ConfigBill = () => {
                 <Box 
                   key={tier.id}
                   display="grid" 
-                  gridTemplateColumns="1fr 2fr 2fr 2fr 1fr" 
-                  gap={2}
+                  gridTemplateColumns={{ 
+                    xs: "1fr", 
+                    sm: "2fr 2fr", 
+                    md: "2fr 2fr 2fr 1fr" 
+                  }}
+                  gap={{ xs: 1, sm: 2 }}
                   alignItems="center"
                   sx={{
-                    p: 2, 
-                    mb: 1, 
+                    p: { xs: 1.5, sm: 2 }, 
+                    mb: { xs: 1, sm: 1.5 }, 
                     borderRadius: 1,
                     backgroundColor: colors.primary[400],
+                    border: `1px solid ${colors.grey[800]}`,
                   }}
                 >
-                  <Typography variant="h5" fontWeight="bold">
+                  <Typography 
+                    variant={isMobile ? "body1" : "h5"} 
+                    fontWeight="bold"
+                    sx={{ gridColumn: { sm: isMobile ? "span 1" : "span 2", md: "span 1" } }}
+                  >
                     {tier.name}
                   </Typography>
                   
-                  <Box display="flex" alignItems="center">
-                    <Typography mr={1}>Range:</Typography>
-                    <Typography fontWeight="medium">
+                  <Box 
+                    display="flex" 
+                    alignItems="center"
+                    sx={{ 
+                      mt: { xs: 0.5, sm: 0 },
+                      gridColumn: { xs: "span 1", sm: "span 1", md: "span 1" } 
+                    }}
+                  >
+                    <Typography variant={isMobile ? "body2" : "body1"} mr={1}>Range:</Typography>
+                    <Typography variant={isMobile ? "body2" : "body1"} fontWeight="medium">
                       {tier.min} - {tier.max === null ? "vô cùng" : tier.max} kWh
                     </Typography>
                   </Box>
                   
-                  <Box display="flex" alignItems="center">
-                    <Typography mr={1}>Price:</Typography>
-                    <Typography fontWeight="medium" color={colors.greenAccent[400]}>
+                  <Box 
+                    display="flex" 
+                    alignItems="center"
+                    sx={{ 
+                      mt: { xs: 0.5, sm: 0 },
+                      gridColumn: { xs: "span 1", sm: "span 1", md: "span 1" } 
+                    }}
+                  >
+                    <Typography variant={isMobile ? "body2" : "body1"} mr={1}>Price:</Typography>
+                    <Typography 
+                      variant={isMobile ? "body2" : "body1"} 
+                      fontWeight="medium" 
+                      color={colors.greenAccent[400]}
+                    >
                       {tier.price.toLocaleString()} VND/kWh
                     </Typography>
                   </Box>
                   
-                  <Box></Box> {/* Spacer */}
-                  
-                  <Box display="flex" justifyContent="flex-end">
-                    <IconButton onClick={() => openTierDialog(tier)} sx={{ color: colors.blueAccent[400] }}>
-                      <EditIcon />
+                  <Box 
+                    display="flex" 
+                    justifyContent={{ xs: "flex-start", md: "flex-end" }}
+                    sx={{ 
+                      mt: { xs: 1, sm: 0 },
+                      gridColumn: { 
+                        xs: "span 1", 
+                        sm: isMobile ? "span 2" : "span 1", 
+                        md: "span 1" 
+                      } 
+                    }}
+                  >
+                    <IconButton 
+                      onClick={() => openTierDialog(tier)} 
+                      sx={{ 
+                        color: colors.blueAccent[400],
+                        padding: isMobile ? 0.5 : 1
+                      }}
+                      size={isMobile ? "small" : "medium"}
+                    >
+                      <EditIcon fontSize={isMobile ? "small" : "medium"} />
                     </IconButton>
-                    <IconButton onClick={() => handleDeleteTier(tier.id)} sx={{ color: colors.redAccent[400] }}>
-                      <DeleteIcon />
+                    <IconButton 
+                      onClick={() => handleDeleteTier(tier.id)} 
+                      sx={{ 
+                        color: colors.redAccent[400],
+                        padding: isMobile ? 0.5 : 1
+                      }}
+                      size={isMobile ? "small" : "medium"}
+                    >
+                      <DeleteIcon fontSize={isMobile ? "small" : "medium"} />
                     </IconButton>
                   </Box>
                 </Box>
@@ -274,14 +343,19 @@ const ConfigBill = () => {
         </Box>
         
         {/* Notifications card */}
-        <Box gridColumn="span 4">
-          <Card sx={{ backgroundColor: colors.primary[400], boxShadow: 3, mb: 2 }}>
-            <CardContent>
-              <Typography variant="h4" color={colors.grey[100]} fontWeight="bold" mb={2}>
+        <Box gridColumn={{ xs: "span 12", md: "span 4" }}>
+          <Card sx={{ backgroundColor: colors.primary[400], boxShadow: 3, mb: { xs: 1, sm: 2 } }}>
+            <CardContent sx={{ p: { xs: 1.5, sm: 2.5 } }}>
+              <Typography 
+                variant={isMobile ? "h5" : "h4"} 
+                color={colors.grey[100]} 
+                fontWeight="bold" 
+                mb={2}
+              >
                 Notification Settings
               </Typography>
               
-              <Box display="flex" flexDirection="column" gap={2}>
+              <Box display="flex" flexDirection="column" gap={1.5}>
                 <FormControlLabel 
                   control={
                     <Switch 
@@ -289,9 +363,15 @@ const ConfigBill = () => {
                       onChange={handleNotificationChange}
                       name="emailEnabled"
                       color="secondary"
+                      size={isMobile ? "small" : "medium"}
                     />
                   } 
                   label="Email Notifications"
+                  sx={{ 
+                    '& .MuiFormControlLabel-label': { 
+                      fontSize: isMobile ? '0.875rem' : '1rem' 
+                    } 
+                  }}
                 />
                 
                 <FormControlLabel 
@@ -301,9 +381,15 @@ const ConfigBill = () => {
                       onChange={handleNotificationChange}
                       name="highUsageAlert"
                       color="secondary"
+                      size={isMobile ? "small" : "medium"}
                     />
                   } 
                   label="High Usage Alerts"
+                  sx={{ 
+                    '& .MuiFormControlLabel-label': { 
+                      fontSize: isMobile ? '0.875rem' : '1rem' 
+                    } 
+                  }}
                 />
                 
                 <TextField
@@ -316,8 +402,9 @@ const ConfigBill = () => {
                   disabled={!notifications.highUsageAlert}
                   InputProps={{ 
                     inputProps: { min: 0 },
-                    endAdornment: <Typography>kWh</Typography>
+                    endAdornment: <Typography variant={isMobile ? "body2" : "body1"}>kWh</Typography>
                   }}
+                  size={isMobile ? "small" : "medium"}
                   sx={{ mt: 1, mb: 2 }}
                 />
                 
@@ -328,7 +415,8 @@ const ConfigBill = () => {
                   startIcon={<SaveIcon />}
                   onClick={handleSaveNotifications}
                   fullWidth
-                  sx={{ mt: 2 }}
+                  size={isMobile ? "small" : "medium"}
+                  sx={{ mt: { xs: 1, sm: 2 } }}
                 >
                   Save Settings
                 </Button>
@@ -339,11 +427,20 @@ const ConfigBill = () => {
       </Box>
       
       {/* Price Tier Dialog - Cập nhật để chỉ nhập số */}
-      <Dialog open={tierDialogOpen} onClose={() => setTierDialogOpen(false)}>
+      <Dialog 
+        open={tierDialogOpen} 
+        onClose={() => setTierDialogOpen(false)}
+        fullScreen={isMobile}
+        maxWidth="sm"
+        fullWidth
+      >
         <DialogTitle>
           {editingTier ? "Edit Price Tier" : "Add New Price Tier"}
         </DialogTitle>
-        <DialogContent>
+        <DialogContent sx={{ 
+          p: { xs: 1.5, sm: 2 }, 
+          pt: { xs: 1.5, sm: 2 } 
+        }}>
           <TextField
             label="Tier Name"
             name="name"
@@ -351,6 +448,8 @@ const ConfigBill = () => {
             onChange={handleTierInputChange}
             fullWidth
             margin="normal"
+            size={isMobile ? "small" : "medium"}
+            sx={{ mt: { xs: 1, sm: 2 } }}
           />
           <TextField
             label="Minimum kWh"
@@ -360,6 +459,7 @@ const ConfigBill = () => {
             fullWidth
             margin="normal"
             inputProps={{ inputMode: 'numeric', pattern: '[0-9]*' }}
+            size={isMobile ? "small" : "medium"}
           />
           <TextField
             label="Maximum kWh (leave empty for unlimited)"
@@ -370,6 +470,7 @@ const ConfigBill = () => {
             margin="normal"
             inputProps={{ inputMode: 'numeric', pattern: '[0-9]*' }}
             helperText="Leave empty for unlimited"
+            size={isMobile ? "small" : "medium"}
           />
           <TextField
             label="Price (VND/kWh)"
@@ -379,15 +480,23 @@ const ConfigBill = () => {
             fullWidth
             margin="normal"
             inputProps={{ inputMode: 'numeric', pattern: '[0-9]*' }}
+            size={isMobile ? "small" : "medium"}
           />
         </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setTierDialogOpen(false)} disabled={loading}>Cancel</Button>
+        <DialogActions sx={{ p: { xs: 1.5, sm: 2 } }}>
+          <Button 
+            onClick={() => setTierDialogOpen(false)} 
+            disabled={loading}
+            size={isMobile ? "small" : "medium"}
+          >
+            Cancel
+          </Button>
           <Button 
             onClick={handleSaveTier}
             variant="contained" 
             color="secondary"
             disabled={loading}
+            size={isMobile ? "small" : "medium"}
           >
             {loading ? "Saving..." : "Save"}
           </Button>
