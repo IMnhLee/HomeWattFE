@@ -1,132 +1,170 @@
-import React, { useEffect, useRef } from "react";
+import React, { useEffect, useRef, useMemo } from "react";
 import * as echarts from "echarts";
 import { useTheme } from "@mui/material";
 import { tokens } from "../theme";
 import { Box } from "@mui/material";
-import {merge} from "lodash";
-const StackedBarMixedLineChart = ({customOptions}) => {
+import { merge } from "lodash";
+
+const BarMixedLineChart = ({ customOptions, loading = false }) => {
   const theme = useTheme();
   const colors = tokens(theme.palette.mode);
-  const chartRef = useRef(null); // Ref để gắn DOM element cho ECharts
-  const chartInstanceRef = useRef(null); // Ref để lưu instance của ECharts
+  const chartRef = useRef(null);
+  const chartInstanceRef = useRef(null);
+  const resizeObserverRef = useRef(null);
 
-  // Khởi tạo và cập nhật ECharts instance
-  useEffect(() => {
-    // Khởi tạo ECharts nếu chưa có
-    if (!chartInstanceRef.current) {
-      chartInstanceRef.current = echarts.init(chartRef.current);
-    }
-    const chart = chartInstanceRef.current;
-
-    const defaultOptions = {
-      textStyle: {
-        fontFamily: "sans-serif, sans-serif",
+  // Tách và memoize defaultOptions để tránh tính toán lại khi re-render
+  const defaultOptions = useMemo(() => ({
+    textStyle: {
+      fontFamily: "sans-serif, sans-serif",
+    },
+    grid: {
+      left: '2%',
+      right: '2%',
+      bottom: '10%',
+      top: '15%',
+      containLabel: true
+    },
+    xAxis: {
+      type: 'time',
+      axisLabel: {
+        color: colors.primary[100],
+        fontSize: '0.8rem',
+        margin: 15,
       },
-      // color: [colors.redAccent[600],colors.yellowAccent[600],colors.greenAccent[600]],
-      grid: {
-        left: '2%',
-        right: '2%',
-        bottom: '15%',
-        containLabel: true
+      axisTick: {
+        alignWithLabel: true
+      }
+    },
+    tooltip: {
+      trigger: 'axis',
+      axisPointer: {
+        type: 'shadow'
       },
-      //cấu hình trục x
-      xAxis: {
-        type: 'time',
+    },
+    yAxis: [
+      {
+        type: "value",
+        position: "left",
         axisLabel: {
           color: colors.primary[100],
           fontSize: '0.8rem',
-          margin: 15,
+          interval: 0,
         },
-        axisTick: {
-          alignWithLabel: true
-        }
-      },
-      //hiển thị thông tin khi hover vào cột
-      tooltip: {
-        trigger: 'axis',
-        axisPointer: {
-          type: 'shadow'
+        splitLine: {
+          show: true,
+          lineStyle: {
+            color: colors.grey[600],
+            width: 1,
+          },
         },
       },
+      {
+        type: "value",
+        position: "right",
+        axisLabel: {
+          color: colors.primary[100],
+          fontSize: '0.8rem',
+          interval: 0,
+        },
+        splitLine: {
+          show: true,
+          lineStyle: {
+            color: colors.grey[600],
+            width: 1,
+          },
+        },
+      },
+    ],
+  }), [colors]);
 
-      //Cấu hình trục y
-      yAxis: [
-        {
-          type: "value",
-         
-          position: "left",
-          axisLabel: {
-            color: colors.primary[100], // Màu từ theme
-            fontSize: '0.8rem',
-            interval: 0,
-          },
-          splitLine: {
-            show: true,
-            lineStyle: {
-              color: colors.grey[600], // Tương ứng #888888
-              width: 1,
-            },
-          },
-        },
-        {
-          type: "value",
-         
-          position: "right",
-          axisLabel: {
-            color: colors.primary[100], // Màu từ theme
-            fontSize: '0.8rem',
-            interval: 0,
-          },
-          splitLine: {
-            show: true,
-            lineStyle: {
-              color: colors.grey[600], // Tương ứng #888888
-              width: 1,
-            },
-          },
-        },
-      ],
-      
+  // Memoize mergedOptions để tránh merge không cần thiết
+  const mergedOptions = useMemo(() => 
+    merge({}, defaultOptions, customOptions),
+    [defaultOptions, customOptions]
+  );
+
+  useEffect(() => {
+    // Hàm khởi tạo biểu đồ
+    const initChart = () => {
+      if (!chartRef.current) return;
+
+      try {
+        // Khởi tạo chart nếu chưa có
+        if (!chartInstanceRef.current) {
+          chartInstanceRef.current = echarts.init(chartRef.current);
+        }
+        
+        // Cập nhật options
+        chartInstanceRef.current.setOption(mergedOptions, true);
+        
+        // Xử lý trạng thái loading nếu có
+        if (loading) {
+          chartInstanceRef.current.showLoading({
+            text: 'Loading data...',
+            color: colors.blueAccent[500],
+            textColor: colors.primary[100],
+            maskColor: 'rgba(0, 0, 0, 0.1)',
+          });
+        } else {
+          chartInstanceRef.current.hideLoading();
+        }
+      } catch (error) {
+        console.error("Error initializing chart:", error);
+      }
     };
 
-    // kết hợp defaul và custom
-    const mergedOptions = merge({}, defaultOptions, customOptions );
+    initChart();
 
-    chart.setOption(mergedOptions); // Áp dụng options
+    // Tạo ResizeObserver một lần duy nhất
+    if (!resizeObserverRef.current && chartRef.current) {
+      resizeObserverRef.current = new ResizeObserver(() => {
+        if (chartInstanceRef.current) {
+          chartInstanceRef.current.resize();
+        }
+      });
+      resizeObserverRef.current.observe(chartRef.current);
+    }
 
-    // Thiết lập ResizeObserver để resize biểu đồ khi element cha thay đổi kích thước
-    const resizeObserver = new ResizeObserver(() => {
+    // Window resize handler
+    const handleWindowResize = () => {
       if (chartInstanceRef.current) {
         chartInstanceRef.current.resize();
       }
-    });
+    };
+    
+    window.addEventListener('resize', handleWindowResize);
 
-    // Quan sát element chứa biểu đồ
-    if (chartRef.current) {
-      resizeObserver.observe(chartRef.current);
-    }
-
-    // Dọn dẹp khi component unmount
+    // Cleanup khi component unmount
     return () => {
+      window.removeEventListener('resize', handleWindowResize);
+      
+      if (resizeObserverRef.current) {
+        if (chartRef.current) {
+          resizeObserverRef.current.unobserve(chartRef.current);
+        }
+        resizeObserverRef.current.disconnect();
+        resizeObserverRef.current = null;
+      }
+      
       if (chartInstanceRef.current) {
         chartInstanceRef.current.dispose();
         chartInstanceRef.current = null;
       }
-      if (chartRef.current) {
-        resizeObserver.unobserve(chartRef.current);
-      }
-      resizeObserver.disconnect(); // Ngắt ResizeObserver hoàn toàn
     };
-  }, [colors, customOptions]); // Dependency là colors và data
+  }, [mergedOptions, colors, loading]);
 
   return (
-      <Box
-        ref={chartRef}
-        sx={{ width: "100%", height: "100%" }} // Sử dụng sx để định kiểu
-      />
+    <Box
+      ref={chartRef}
+      sx={{ 
+        width: "100%", 
+        height: "100%",
+        position: "relative" 
+      }}
+      data-testid="bar-mixed-line-chart"
+    />
   );
 };
-  // Generate series dynamically with dual y-axis
-  
 
-export default StackedBarMixedLineChart;
+// Sử dụng React.memo để tối ưu renders
+export default React.memo(BarMixedLineChart);
