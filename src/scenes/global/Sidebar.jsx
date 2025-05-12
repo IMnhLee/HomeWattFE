@@ -96,7 +96,6 @@ const ProSidebar = ({
           icon: <DashboardOutlinedIcon />,
           subItems: [
             { title: 'Overview', to: "/", icon: <MonitorHeartOutlinedIcon /> },
-            { title: "Cost", to: "/monitoring/cost", icon: <BarChartOutlinedIcon /> },
             { title: "Applicant", to: "/monitoring/app", icon: <SpeedIcon /> },
             { title: "Usage-by-location", to: "/monitoring/usagebylocation", icon: <TimelineOutlinedIcon /> },
             { title: "Emission", to: "/monitoring/emission", icon: <Co2OutlinedIcon /> },
