@@ -9,7 +9,6 @@ import {
   DialogContent,
   DialogTitle,
   TextField,
-  InputAdornment,
   Tooltip,
   Select,
   MenuItem,
@@ -246,7 +245,7 @@ const EnergyDeviceList = () => {
     <Box m="20px">
       <Header title="Energy Consuming Devices" subtitle="Manage your energy consuming devices" />
       
-      <Box display="flex" justifyContent="flex-end" mb={3}>
+      {/* <Box display="flex" justifyContent="flex-end" mb={3}>
         <Button
           variant="contained"
           color="secondary"
@@ -255,62 +254,69 @@ const EnergyDeviceList = () => {
         >
           Add Device
         </Button>
-      </Box>
+      </Box> */}
 
       {/* DataGrid with built-in filtering */}
       <Box
-        height="75vh"
-        sx={{
-          "& .MuiDataGrid-root": {
-            border: "none",
-          },
-          "& .MuiDataGrid-cell": {
-            borderBottom: "none",
-            fontSize: "16px"
-          },
-          "& .MuiDataGrid-columnHeaders": {
-            backgroundColor: colors.blueAccent[700],
-            borderBottom: "none",
-            fontSize: "18px",
-            fontWeight: "bold"
-          },
-          "& .MuiDataGrid-virtualScroller": {
-            backgroundColor: colors.primary[400],
-          },
-          "& .MuiDataGrid-footerContainer": {
-            borderTop: "none",
-            backgroundColor: colors.blueAccent[700],
-          },
-          "& .MuiCheckbox-root": {
-            color: `${colors.greenAccent[200]} !important`,
-          },
-          "& .MuiDataGrid-toolbarContainer .MuiButton-text": {
-            color: `${colors.grey[100]} !important`,
-          },
-        }}
+        display="grid"
+        gridTemplateColumns="repeat(12, 1fr)"
+        gap="10px"
       >
-        <DataGrid
-          rows={devices}
-          columns={columns}
-          pageSize={10}
-          rowsPerPageOptions={[5, 10, 20]}
-          disableSelectionOnClick
-          components={{ Toolbar: GridToolbar }}
-          componentsProps={{
-            toolbar: {
-              showQuickFilter: true,
-              quickFilterProps: { debounceMs: 500 },
+        <Box
+          gridColumn="span 12"
+          height="75vh"
+          sx={{
+            "& .MuiDataGrid-root": {
+              border: "none",
+            },
+            "& .MuiDataGrid-cell": {
+              borderBottom: "none",
+              fontSize: "16px"
+            },
+            "& .MuiDataGrid-columnHeaders": {
+              backgroundColor: colors.blueAccent[700],
+              borderBottom: "none",
+              fontSize: "18px",
+              fontWeight: "bold"
+            },
+            "& .MuiDataGrid-virtualScroller": {
+              backgroundColor: colors.primary[400],
+            },
+            "& .MuiDataGrid-footerContainer": {
+              borderTop: "none",
+              backgroundColor: colors.blueAccent[700],
+            },
+            "& .MuiCheckbox-root": {
+              color: `${colors.greenAccent[200]} !important`,
+            },
+            "& .MuiDataGrid-toolbarContainer .MuiButton-text": {
+              color: `${colors.grey[100]} !important`,
             },
           }}
-          initialState={{
-            filter: {
-              filterModel: {
-                items: [],
-                quickFilterValues: [],
+        >
+          <DataGrid
+            rows={devices}
+            columns={columns}
+            pageSize={10}
+            rowsPerPageOptions={[5, 10, 20]}
+            disableSelectionOnClick
+            components={{ Toolbar: GridToolbar }}
+            componentsProps={{
+              toolbar: {
+                showQuickFilter: true,
+                quickFilterProps: { debounceMs: 500 },
               },
-            },
-          }}
-        />
+            }}
+            initialState={{
+              filter: {
+                filterModel: {
+                  items: [],
+                  quickFilterValues: [],
+                },
+              },
+            }}
+          />
+        </Box>
       </Box>
 
       {/* Add/Edit Device Dialog */}
