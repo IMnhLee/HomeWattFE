@@ -1,14 +1,14 @@
 import { useState } from "react";
 import { Box, Button, TextField, Typography, useTheme, 
   Card, CardContent, IconButton, Divider, Switch,
-  FormControlLabel, Dialog, DialogActions, DialogContent, DialogTitle, 
-  useMediaQuery } from "@mui/material";
+  FormControlLabel, Modal, useMediaQuery } from "@mui/material";
 import { tokens } from "../../theme";
 import Header from "../../components/Header";
 import AddIcon from "@mui/icons-material/Add";
 import EditIcon from "@mui/icons-material/Edit";
 import DeleteIcon from "@mui/icons-material/Delete";
 import SaveIcon from "@mui/icons-material/Save";
+import CloseIcon from "@mui/icons-material/Close";
 import axios from "axios";
 
 const ConfigBill = () => {
@@ -39,8 +39,8 @@ const ConfigBill = () => {
     highUsageThreshold: 300
   });
 
-  // Dialog states
-  const [tierDialogOpen, setTierDialogOpen] = useState(false);
+  // Modal states
+  const [tierModalOpen, setTierModalOpen] = useState(false);
   const [editingTier, setEditingTier] = useState(null);
   const [newTier, setNewTier] = useState({
     min: 0,
@@ -58,8 +58,8 @@ const ConfigBill = () => {
     });
   };
 
-  // Open tier dialog
-  const openTierDialog = (tier = null) => {
+  // Open tier modal
+  const openTierModal = (tier = null) => {
     if (tier) {
       setEditingTier(tier);
       setNewTier({ ...tier });
@@ -72,7 +72,7 @@ const ConfigBill = () => {
         name: `Tier ${priceTiers.length + 1}`
       });
     }
-    setTierDialogOpen(true);
+    setTierModalOpen(true);
   };
 
   // Handle tier form input - CHỈ CHO PHÉP NHẬP SỐ
@@ -149,7 +149,7 @@ const ConfigBill = () => {
         setPriceTiers([...priceTiers, { ...tierData, id: newId }]);
       }
       
-      setTierDialogOpen(false);
+      setTierModalOpen(false);
       alert(editingTier ? "Tier updated successfully!" : "New tier added successfully!");
       
     } catch (error) {
@@ -199,6 +199,22 @@ const ConfigBill = () => {
     }
   };
 
+  // Modal style configuration
+  const modalStyle = {
+    position: 'absolute',
+    top: '50%',
+    left: '50%',
+    transform: 'translate(-50%, -50%)',
+    width: isMobile ? '90%' : '500px',
+    maxHeight: '90vh',
+    overflow: 'auto',
+    bgcolor: colors.primary[400],
+    border: `1px solid ${colors.grey[800]}`,
+    boxShadow: 24,
+    borderRadius: 1,
+    p: isMobile ? 2 : 3,
+  };
+
   return (
     <Box m={{ xs: "10px", sm: "20px" }}>
       <Header 
@@ -234,7 +250,7 @@ const ConfigBill = () => {
                   variant="contained"
                   color="secondary"
                   startIcon={<AddIcon />}
-                  onClick={() => openTierDialog()}
+                  onClick={() => openTierModal()}
                   size={isMobile ? "small" : "medium"}
                   sx={{ alignSelf: { xs: "stretch", sm: "auto" } }}
                 >
@@ -316,7 +332,7 @@ const ConfigBill = () => {
                     }}
                   >
                     <IconButton 
-                      onClick={() => openTierDialog(tier)} 
+                      onClick={() => openTierModal(tier)} 
                       sx={{ 
                         color: colors.blueAccent[400],
                         padding: isMobile ? 0.5 : 1
@@ -426,82 +442,96 @@ const ConfigBill = () => {
         </Box>
       </Box>
       
-      {/* Price Tier Dialog - Cập nhật để chỉ nhập số */}
-      <Dialog 
-        open={tierDialogOpen} 
-        onClose={() => setTierDialogOpen(false)}
-        fullScreen={isMobile}
-        maxWidth="sm"
-        fullWidth
+      {/* Price Tier Modal */}
+      <Modal 
+        open={tierModalOpen} 
+        onClose={() => setTierModalOpen(false)}
+        aria-labelledby="modal-tier-title"
+        aria-describedby="modal-tier-description"
       >
-        <DialogTitle>
-          {editingTier ? "Edit Price Tier" : "Add New Price Tier"}
-        </DialogTitle>
-        <DialogContent sx={{ 
-          p: { xs: 1.5, sm: 2 }, 
-          pt: { xs: 1.5, sm: 2 } 
-        }}>
-          <TextField
-            label="Tier Name"
-            name="name"
-            value={newTier.name}
-            onChange={handleTierInputChange}
-            fullWidth
-            margin="normal"
-            size={isMobile ? "small" : "medium"}
-            sx={{ mt: { xs: 1, sm: 2 } }}
-          />
-          <TextField
-            label="Minimum kWh"
-            name="min"
-            value={newTier.min}
-            onChange={handleTierInputChange}
-            fullWidth
-            margin="normal"
-            inputProps={{ inputMode: 'numeric', pattern: '[0-9]*' }}
-            size={isMobile ? "small" : "medium"}
-          />
-          <TextField
-            label="Maximum kWh (leave empty for unlimited)"
-            name="max"
-            value={newTier.max === null ? "" : newTier.max}
-            onChange={handleTierInputChange}
-            fullWidth
-            margin="normal"
-            inputProps={{ inputMode: 'numeric', pattern: '[0-9]*' }}
-            helperText="Leave empty for unlimited"
-            size={isMobile ? "small" : "medium"}
-          />
-          <TextField
-            label="Price (VND/kWh)"
-            name="price"
-            value={newTier.price}
-            onChange={handleTierInputChange}
-            fullWidth
-            margin="normal"
-            inputProps={{ inputMode: 'numeric', pattern: '[0-9]*' }}
-            size={isMobile ? "small" : "medium"}
-          />
-        </DialogContent>
-        <DialogActions sx={{ p: { xs: 1.5, sm: 2 } }}>
-          <Button 
-            onClick={() => setTierDialogOpen(false)} 
-            disabled={loading}
-            size={isMobile ? "small" : "medium"}
-          >
-            Cancel
-          </Button>
-          <Button 
-            onClick={handleSaveTier}
-            variant="contained" 
-            color="secondary"
-            disabled={loading}
-            size={isMobile ? "small" : "medium"}
-          >
-            {loading ? "Saving..." : "Save"}
-          </Button>
-        </DialogActions>
-      </Dialog>
+        <Box sx={modalStyle}>
+          {/* Modal header */}
+          <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
+            <Typography id="modal-tier-title" variant="h4" component="h2">
+              {editingTier ? "Edit Price Tier" : "Add New Price Tier"}
+            </Typography>
+            <IconButton 
+              aria-label="close" 
+              onClick={() => setTierModalOpen(false)}
+              sx={{ color: colors.grey[300] }}
+            >
+              <CloseIcon />
+            </IconButton>
+          </Box>
+          
+          <Divider sx={{ mb: 2, borderColor: colors.grey[700] }} />
+          
+          {/* Modal content */}
+          <Box id="modal-tier-description" sx={{ mt: 2 }}>
+            <TextField
+              label="Tier Name"
+              name="name"
+              value={newTier.name}
+              onChange={handleTierInputChange}
+              fullWidth
+              margin="normal"
+              size={isMobile ? "small" : "medium"}
+              sx={{ mt: { xs: 1, sm: 2 } }}
+            />
+            <TextField
+              label="Minimum kWh"
+              name="min"
+              value={newTier.min}
+              onChange={handleTierInputChange}
+              fullWidth
+              margin="normal"
+              inputProps={{ inputMode: 'numeric', pattern: '[0-9]*' }}
+              size={isMobile ? "small" : "medium"}
+            />
+            <TextField
+              label="Maximum kWh (leave empty for unlimited)"
+              name="max"
+              value={newTier.max === null ? "" : newTier.max}
+              onChange={handleTierInputChange}
+              fullWidth
+              margin="normal"
+              inputProps={{ inputMode: 'numeric', pattern: '[0-9]*' }}
+              helperText="Leave empty for unlimited"
+              size={isMobile ? "small" : "medium"}
+            />
+            <TextField
+              label="Price (VND/kWh)"
+              name="price"
+              value={newTier.price}
+              onChange={handleTierInputChange}
+              fullWidth
+              margin="normal"
+              inputProps={{ inputMode: 'numeric', pattern: '[0-9]*' }}
+              size={isMobile ? "small" : "medium"}
+            />
+          </Box>
+          
+          {/* Modal actions */}
+          <Box sx={{ mt: 3, display: 'flex', justifyContent: 'flex-end', gap: 1 }}>
+            <Button 
+              onClick={() => setTierModalOpen(false)} 
+              disabled={loading}
+              size={isMobile ? "small" : "medium"}
+            >
+              Cancel
+            </Button>
+            <Button 
+              onClick={handleSaveTier}
+              variant="contained" 
+              color="secondary"
+              disabled={loading}
+              size={isMobile ? "small" : "medium"}
+            >
+              {loading ? "Saving..." : "Save"}
+            </Button>
+          </Box>
+        </Box>
+      </Modal>
     </Box>
   );
 };
