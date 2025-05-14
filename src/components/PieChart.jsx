@@ -59,15 +59,18 @@ const PieChart = React.memo(({ isDashboard = false,data, height='350px', customO
       },
     },
     legend: {
-    //   show: !isDashboard,
       position: "bottom",
       labels: {
-        colors: colors.grey[100], // Màu chữ của legend
+        colors: colors.grey[100],
       },
-   
       formatter: function (seriesName) {
         return seriesName;
       },
+      // Add scrollable legend properties
+      height: 80,
+      fontSize: "14px",
+      horizontalAlign: "center",
+      scrollable: true,
     },
     responsive: [
       {
