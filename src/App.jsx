@@ -7,20 +7,22 @@ import Topbar from "./scenes/global/Topbar";
 import Sidebar from "./scenes/global/Sidebar";
 
 import Dashboard from "./scenes/dashboard";
-import Team from "./scenes/team";
 
 import Form from "./scenes/form";
 import FAQ from "./scenes/faq";
 import Login from "./scenes/login";
+import Signup from "./scenes/signup/signup"; // Import Signup component
 import Appliances from "./scenes/appliances";
 import Setting from "./scenes/setting";
 import Emission from "./scenes/emission";
-import Location from "./scenes/location";
 import EnergyDeviceList from "./scenes/devices/EnergyDeviceList";
 import FloorRoomManagement from "./scenes/devices/FloorRoomManagement";
 import MeasurementDevices from "./scenes/devices/MeasurementDevices";
 import ConfigBill from "./scenes/bill/configBill";
 import ConsumptionPage from "./scenes/consumptions";
+import Profile from "./scenes/profile/profile";
+import ManageUser from "./scenes/admin/manageUser";
+import Team from "./scenes/team";
 
 function App() {
 
@@ -61,7 +63,7 @@ useEffect(() => {
                 width: "100%", // Đảm bảo Box chiếm toàn bộ chiều rộng
               }}
             >
-              {isLoggedIn && (
+              {isLoggedIn ? (
                 <>
                   <Topbar
                     setToggled={setToggled}
@@ -71,10 +73,8 @@ useEffect(() => {
                   />
                   <Routes>
                     <Route path="/" element={<Dashboard />} />
-                    <Route path="/team" element={<Team />} />
                     <Route path="/monitoring/app" element={<Appliances />} />
                     <Route path ="/monitoring/emission" element={<Emission/>}/>
-                    <Route path="/monitoring/usagebylocation" element={<Location />} />
                     <Route path ="/setting" element={<Setting/>}/>
                     <Route path="/devices/list" element={<EnergyDeviceList/>}></Route>
                     <Route path="/devices/room" element={<FloorRoomManagement/>}></Route>
@@ -83,11 +83,19 @@ useEffect(() => {
                     <Route path="/consumptions" element={<ConsumptionPage/>}></Route>
                     <Route path="/form" element={<Form />} />
                     <Route path="/faq" element={<FAQ />} />
+                    <Route path="/profile" element={<Profile />}></Route>
+                    <Route path="/team" element={<Team />}></Route>
+                    <Route path="/admin/users" element={<ManageUser />}></Route>
                   </Routes>
                 </>
+              ) : (
+                // Auth routes when not logged in
+                <Routes>
+                  <Route path="/signup" element={<Signup />} />
+                  <Route path="*" element={<Login />} /> {/* Default to login for any other path */}
+                </Routes>
               )}
-						  {!isLoggedIn && <Login />}
-						</Box>
+            </Box>
           </main>
 				</div>
 			</ThemeProvider>
