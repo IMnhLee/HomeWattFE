@@ -6,7 +6,7 @@ import {
   Typography,
   useTheme,
   TextField,
-  Modal, // Replace Dialog with Modal
+  Modal,
   FormControl,
   InputLabel,
   Select,
@@ -24,7 +24,8 @@ import {
   Tooltip,
   List,
   Card,
-  CardContent
+  CardContent,
+  FormHelperText
 } from "@mui/material";
 import { tokens } from "../../theme";
 import Header from "../../components/Header";
@@ -106,8 +107,29 @@ const MeasurementDevices = () => {
     }
   ]);
 
+  // Available floors and rooms
+  const [availableFloors, setAvailableFloors] = useState([
+    "Tầng 1", "Tầng 2", "Tầng 3", "Ground Floor", "1st Floor", "2nd Floor"
+  ]);
+  
+  // Sample rooms data
+  const [availableRooms, setAvailableRooms] = useState([
+    { id: 1, name: "Living Room", floor: "Tầng 1" },
+    { id: 2, name: "Kitchen", floor: "Tầng 1" },
+    { id: 3, name: "Bedroom", floor: "1st Floor" },
+    { id: 4, name: "Study", floor: "2nd Floor" },
+    { id: 5, name: "Bathroom", floor: "1st Floor" },
+    { id: 6, name: "Laundry", floor: "Ground Floor" }
+  ]);
+  
+  // Get rooms for selected floor
+  const getRoomsForFloor = (floorName) => {
+    if (!floorName) return [];
+    return availableRooms.filter(room => room.floor === floorName);
+  };
+
   const [newDevice, setNewDevice] = useState({
-    name: "1",
+    name: "",
     code: "",
     location: "",
     status: "active"
@@ -118,6 +140,13 @@ const MeasurementDevices = () => {
     status: "disconnected"
   });
   
+  // New device for connection
+  const [newConnectDevice, setNewConnectDevice] = useState({
+    name: "",
+    floor: "",
+    room: ""
+  });
+  
   // UI state
   const [expandedDevice, setExpandedDevice] = useState(null);
   const [page, setPage] = useState(0);
@@ -126,12 +155,14 @@ const MeasurementDevices = () => {
   // Dialog states
   const [deviceDialogOpen, setDeviceDialogOpen] = useState(false);
   const [lineDialogOpen, setLineDialogOpen] = useState(false);
-  const [connectionDialogOpen, setConnectionDialogOpen] = useState(false);
+  const [connectDeviceDialogOpen, setConnectDeviceDialogOpen] = useState(false);
+  const [confirmDialogOpen, setConfirmDialogOpen] = useState(false);
   
   const [editingDevice, setEditingDevice] = useState(null);
   const [selectedDevice, setSelectedDevice] = useState(null);
   const [selectedLine, setSelectedLine] = useState(null);
-  
+  const [disconnectInfo, setDisconnectInfo] = useState({ deviceId: null, lineId: null });
+
   const handleExpandDevice = (deviceId) => {
     setExpandedDevice(expandedDevice === deviceId ? null : deviceId);
   };
@@ -250,50 +281,81 @@ const MeasurementDevices = () => {
     setLineDialogOpen(false);
   };
   
-  // Delete line
-  const handleDeleteLine = (deviceId, lineId) => {
-    setMeasurementDevices(measurementDevices.map(device => 
-      device.id === deviceId
-        ? { 
-            ...device, 
-            lines: device.lines.filter(line => line.id !== lineId)
-          }
-        : device
-    ));
-  };
-  
-  // Open connection dialog
-  const openConnectionDialog = (device, line) => {
+  // Open connect device dialog
+  const openConnectDeviceDialog = (device, line) => {
     setSelectedDevice(device);
     setSelectedLine(line);
-    setFloorFilter("All"); // Reset filters when opening dialog
-    setRoomFilter("All");
-    setConnectionDialogOpen(true);
+    setNewConnectDevice({
+      name: "",
+      floor: "",
+      room: ""
+    });
+    setConnectDeviceDialogOpen(true);
   };
   
-  // Connect device to line
-  const handleConnectDevice = (energyDeviceId) => {
-    setMeasurementDevices(measurementDevices.map(device => 
-      device.id === selectedDevice.id
-        ? { 
-            ...device, 
-            lines: device.lines.map(line => 
-              line.id === selectedLine.id
-                ? { 
-                    ...line, 
-                    connectedDeviceId: energyDeviceId,
-                    status: "connected"
-                  }
-                : line
-            )
-          }
-        : device
-    ));
-    setConnectionDialogOpen(false);
+  // Handle new connect device form input
+  const handleConnectDeviceInputChange = (e) => {
+    const { name, value } = e.target;
+    setNewConnectDevice({
+      ...newConnectDevice,
+      [name]: value
+    });
+    
+    // Reset room when floor changes
+    if (name === 'floor') {
+      setNewConnectDevice(prev => ({
+        ...prev,
+        room: ''
+      }));
+    }
   };
   
-  // Disconnect device from line
+  // Create and connect a new device
+  const handleCreateAndConnectDevice = () => {
+    if (selectedDevice && selectedLine && newConnectDevice.name) {
+      // Create a new energy device
+      const newDeviceId = Math.max(0, ...energyDevices.map(d => d.id)) + 1;
+      const createdDevice = {
+        id: newDeviceId,
+        name: newConnectDevice.name,
+        room: newConnectDevice.room || "",
+        floor: newConnectDevice.floor || ""
+      };
+      
+      // Add to energy devices
+      setEnergyDevices([...energyDevices, createdDevice]);
+      
+      // Connect to the line
+      setMeasurementDevices(measurementDevices.map(device => 
+        device.id === selectedDevice.id
+          ? { 
+              ...device, 
+              lines: device.lines.map(line => 
+                line.id === selectedLine.id
+                  ? { 
+                      ...line, 
+                      connectedDeviceId: newDeviceId,
+                      status: "connected"
+                    }
+                  : line
+              )
+            }
+          : device
+      ));
+      
+      setConnectDeviceDialogOpen(false);
+    }
+  };
+  
+  // Open modal Disconnect device from line
   const handleDisconnectLine = (deviceId, lineId) => {
+    setDisconnectInfo({ deviceId, lineId });
+    setConfirmDialogOpen(true);
+  };
+
+  const confirmDisconnect = () => {
+    const { deviceId, lineId } = disconnectInfo;
+    
     setMeasurementDevices(measurementDevices.map(device => 
       device.id === deviceId
         ? { 
@@ -310,42 +372,10 @@ const MeasurementDevices = () => {
           }
         : device
     ));
+    
+    setConfirmDialogOpen(false);
   };
   
-  // Add filter states for the connection dialog
-  const [floorFilter, setFloorFilter] = useState("All");
-  const [roomFilter, setRoomFilter] = useState("All");
-
-  // Extract unique floors and rooms for filter dropdowns
-  const uniqueFloors = useMemo(() => 
-    ["All", ...new Set(energyDevices.map(device => device.floor))],
-    [energyDevices]
-  );
-  
-  const uniqueRooms = useMemo(() => 
-    ["All", ...new Set(energyDevices.map(device => device.room))],
-    [energyDevices]
-  );
-
-  // Filter devices based on selected floor and room
-  const filteredDevices = useMemo(() => 
-    energyDevices.filter(device => 
-      (floorFilter === "All" || device.floor === floorFilter) && 
-      (roomFilter === "All" || device.room === roomFilter)
-    ),
-    [energyDevices, floorFilter, roomFilter]
-  );
-
-  // Handle floor filter change
-  const handleFloorFilterChange = (event) => {
-    setFloorFilter(event.target.value);
-  };
-
-  // Handle room filter change
-  const handleRoomFilterChange = (event) => {
-    setRoomFilter(event.target.value);
-  };
-
   // Get device name by ID - include room and floor in display
   const getDeviceName = (deviceId) => {
     const device = energyDevices.find(d => d.id === deviceId);
@@ -431,11 +461,11 @@ const MeasurementDevices = () => {
                           <EditIcon />
                         </IconButton>
                       </Tooltip>
-                      <Tooltip title="Add Line">
+                      {/* <Tooltip title="Add Line">
                         <IconButton size="medium" color="primary" onClick={() => openLineDialog(device)}>
                           <DeviceHubIcon />
                         </IconButton>
-                      </Tooltip>
+                      </Tooltip> */}
                       <Tooltip title="Delete">
                         <IconButton 
                           size="medium" 
@@ -493,7 +523,7 @@ const MeasurementDevices = () => {
                                           <IconButton 
                                             size="medium" 
                                             color="success"
-                                            onClick={() => openConnectionDialog(device, line)}
+                                            onClick={() => openConnectDeviceDialog(device, line)}
                                           >
                                             <LinkIcon />
                                           </IconButton>
@@ -508,7 +538,7 @@ const MeasurementDevices = () => {
                                           </IconButton>
                                         </Tooltip>
                                       )}
-                                      <Tooltip title="Delete Line">
+                                      {/* <Tooltip title="Delete Line">
                                         <IconButton 
                                           size="medium" 
                                           color="error"
@@ -516,7 +546,7 @@ const MeasurementDevices = () => {
                                         >
                                           <DeleteIcon />
                                         </IconButton>
-                                      </Tooltip>
+                                      </Tooltip> */}
                                     </Box>
                                   </TableCell>
                                 </TableRow>
@@ -524,7 +554,7 @@ const MeasurementDevices = () => {
                             </TableBody>
                           </Table>
                         )}
-                        <Button
+                        {/* <Button
                           variant="outlined"
                           size="medium" // Changed from small
                           startIcon={<AddIcon />}
@@ -533,7 +563,7 @@ const MeasurementDevices = () => {
                           color="secondary"
                         >
                           Add Line
-                        </Button>
+                        </Button> */}
                       </Box>
                     </Collapse>
                   </TableCell>
@@ -565,7 +595,7 @@ const MeasurementDevices = () => {
         />
       </TableContainer>
       
-      {/* Replace Device Dialog with Modal */}
+      {/* Device Dialog */}
       <Modal
         open={deviceDialogOpen}
         onClose={() => setDeviceDialogOpen(false)}
@@ -659,7 +689,7 @@ const MeasurementDevices = () => {
         </Box>
       </Modal>
       
-      {/* Replace Line Dialog with Modal */}
+      {/* Line Dialog */}
       <Modal
         open={lineDialogOpen}
         onClose={() => setLineDialogOpen(false)}
@@ -706,123 +736,126 @@ const MeasurementDevices = () => {
         </Box>
       </Modal>
       
-      {/* Replace Connection Dialog with Modal */}
+      {/* Connect Device Dialog */}
       <Modal
-        open={connectionDialogOpen}
-        onClose={() => setConnectionDialogOpen(false)}
-        aria-labelledby="connection-modal-title"
+        open={connectDeviceDialogOpen}
+        onClose={() => setConnectDeviceDialogOpen(false)}
+        aria-labelledby="connect-device-modal-title"
       >
-        <Box sx={{...modalStyle, width: 600, maxHeight: '80vh', overflow: 'auto'}}>
+        <Box sx={modalStyle}>
           {/* Title */}
-          <Typography id="connection-modal-title" variant="h4" sx={{ mb: 3, fontSize: "22px" }}>
-            Connect Device to {selectedDevice?.name} - {selectedLine?.name}
+          <Typography id="connect-device-modal-title" variant="h4" sx={{ mb: 3, fontSize: "22px" }}>
+            Create and Connect Device
+          </Typography>
+          
+          <Typography variant="body1" gutterBottom sx={{ mb: 2 }}>
+            Connect new device to {selectedDevice?.name} - {selectedLine?.name}
           </Typography>
           
           {/* Content */}
-          <Box sx={{ mt: 1 }}>
-            <Typography variant="body1" color={colors.grey[100]} gutterBottom sx={{ fontSize: "18px" }}>
-              Filter devices:
-            </Typography>
+          <Box component="form" sx={{ mt: 1 }}>
+            <TextField
+              margin="normal"
+              required
+              fullWidth
+              label="Device Name"
+              name="name"
+              value={newConnectDevice.name}
+              onChange={handleConnectDeviceInputChange}
+              sx={{
+                "& .MuiOutlinedInput-root": {
+                  fontSize: "16px",
+                },
+                "& .MuiInputLabel-root.Mui-focused": { color: colors.primary[100] },
+              }}
+            />
             
-            {/* Filters */}
-            <Box 
-              display="grid"
-              gridTemplateColumns="1fr 1fr"
-              gap={2}
-              sx={{ mb: 3 }}
-            >
-              <Box>
-                <FormControl fullWidth>
-                  <InputLabel id="floor-filter-label" sx={{ fontSize: "16px", "&.Mui-focused": {color: colors.primary[100]} }}>Floor</InputLabel>
-                  <Select
-                    labelId="floor-filter-label"
-                    value={floorFilter}
-                    onChange={handleFloorFilterChange}
-                    label="Floor"
-                    sx={{ fontSize: "16px" }}
-                  >
-                    {uniqueFloors.map(floor => (
-                      <MenuItem key={floor} value={floor} sx={{ fontSize: "16px" }}>
-                        {floor}
-                      </MenuItem>
-                    ))}
-                  </Select>
-                </FormControl>
-              </Box>
-              <Box>
-                <FormControl fullWidth>
-                  <InputLabel id="room-filter-label" sx={{ fontSize: "16px", "&.Mui-focused": {color: colors.primary[100]} }}>Room</InputLabel>
-                  <Select
-                    labelId="room-filter-label"
-                    value={roomFilter}
-                    onChange={handleRoomFilterChange}
-                    label="Room"
-                    sx={{ fontSize: "16px" }}
-                  >
-                    {uniqueRooms.map(room => (
-                      <MenuItem key={room} value={room} sx={{ fontSize: "16px" }}>
-                        {room}
-                      </MenuItem>
-                    ))}
-                  </Select>
-                </FormControl>
-              </Box>
-            </Box>
-
-            <Typography variant="body1" color={colors.grey[100]} gutterBottom sx={{ fontSize: "18px" }}>
-              Select a device to connect:
-            </Typography>
-            
-            {filteredDevices.length > 0 ? (
-              <List sx={{ maxHeight: '300px', overflow: 'auto' }}>
-                {filteredDevices.map((device) => (
-                  <Card 
-                    key={device.id} 
-                    variant="outlined"
-                    sx={{ 
-                      mb: 1,
-                      cursor: 'pointer',
-                      backgroundColor: colors.primary[900],
-                      '&:hover': { backgroundColor: colors.primary[800] }
-                    }}
-                    onClick={() => handleConnectDevice(device.id)}
-                  >
-                    <CardContent sx={{ py: 1 }}>
-                      <Typography variant="body1" sx={{ fontSize: "16px", fontWeight: "bold" }}>
-                        {device.name}
-                      </Typography>
-                      <Typography variant="body2" sx={{ fontSize: "14px", color: colors.grey[300] }}>
-                        {device.room} • {device.floor}
-                      </Typography>
-                    </CardContent>
-                  </Card>
+            {/* Floor dropdown */}
+            <FormControl fullWidth margin="normal">
+              <InputLabel id="floor-select-label" sx={{ fontSize: "16px", "&.Mui-focused": {color: colors.primary[100]}}}>Floor</InputLabel>
+              <Select
+                labelId="floor-select-label"
+                id="floor-select"
+                name="floor"
+                value={newConnectDevice.floor}
+                label="Floor"
+                onChange={handleConnectDeviceInputChange}
+              >
+                <MenuItem value="">
+                  <em>None</em>
+                </MenuItem>
+                {availableFloors.map((floor) => (
+                  <MenuItem key={floor} value={floor}>{floor}</MenuItem>
                 ))}
-              </List>
-            ) : (
-              <Typography variant="body1" color={colors.grey[300]} sx={{ fontSize: "16px" }}>
-                No devices match the selected filters
-              </Typography>
-            )}
+              </Select>
+              <FormHelperText>Select a floor or leave empty</FormHelperText>
+            </FormControl>
+            
+            {/* Room dropdown (filtered by selected floor) */}
+            <FormControl fullWidth margin="normal" disabled={!newConnectDevice.floor}>
+              <InputLabel id="room-select-label" sx={{ fontSize: "16px", "&.Mui-focused": {color: colors.primary[100]}}}>Room</InputLabel>
+              <Select
+                labelId="room-select-label"
+                id="room-select"
+                name="room"
+                value={newConnectDevice.room}
+                label="Room"
+                onChange={handleConnectDeviceInputChange}
+              >
+                <MenuItem value="">
+                  <em>None</em>
+                </MenuItem>
+                {getRoomsForFloor(newConnectDevice.floor).map((room) => (
+                  <MenuItem key={room.id} value={room.name}>{room.name}</MenuItem>
+                ))}
+              </Select>
+              <FormHelperText>
+                {newConnectDevice.floor 
+                  ? "Select a room or leave empty" 
+                  : "Select a floor first"}
+              </FormHelperText>
+            </FormControl>
           </Box>
           
           {/* Actions */}
           <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: 3, gap: 1 }}>
+            <Button onClick={() => setConnectDeviceDialogOpen(false)} sx={{ fontSize: "16px", color: colors.primary[100] }}>Cancel</Button>
             <Button 
-              onClick={() => {
-                setFloorFilter("All");
-                setRoomFilter("All");
-              }} 
-              sx={{ fontSize: "16px", color: colors.primary[100] }}
-              color="primary"
+              onClick={handleCreateAndConnectDevice}
+              color="secondary"
+              variant="contained"
+              disabled={!newConnectDevice.name}
+              sx={{ fontSize: "16px" }}
             >
-              Clear Filters
+              Create and Connect
             </Button>
-            <Button 
-              onClick={() => setConnectionDialogOpen(false)} 
-              sx={{ fontSize: "16px", color: colors.primary[100]  }}
-              variant="outlined"
-            >
+          </Box>
+        </Box>
+      </Modal>
+
+      {/* Confirm Disconnect Dialog */}
+      <Modal
+        open={confirmDialogOpen}
+        onClose={() => setConfirmDialogOpen(false)}
+        // aria-labelledby="disconnect-confirm-title"
+      >
+        <Box sx={modalStyle}>
+          <Typography id="disconnect-confirm-title" sx={{ mb: 2 }}>
+            Confirm Disconnection
+          </Typography>
+          <Typography sx={{ mb: 3 }}>
+            Are you sure you want to disconnect this device from the line?
+          </Typography>
+          <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 1 }}>
+            <Button onClick={() => setConfirmDialogOpen(false)} sx={{ fontSize: "16px", color: colors.primary[100] }}>
               Cancel
+            </Button>
+            <Button
+              onClick={confirmDisconnect}
+              color="error"
+              sx={{ fontSize: "16px" }}
+            >
+              Disconnect
             </Button>
           </Box>
         </Box>

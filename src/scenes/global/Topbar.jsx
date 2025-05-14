@@ -4,6 +4,7 @@ import { ColorModeContext, tokens } from "../../theme";
 import LightModeOutlinedIcon from "@mui/icons-material/LightModeOutlined";
 import DarkModeOutlinedIcon from "@mui/icons-material/DarkModeOutlined";
 import LogoutOutlinedIcon from '@mui/icons-material/LogoutOutlined';
+import PersonOutlinedIcon from "@mui/icons-material/PersonOutlined";
 import { FaBars } from 'react-icons/fa';
 
 
@@ -45,6 +46,16 @@ const Topbar = ({ broken, setToggled, toggled }) => {
             <LightModeOutlinedIcon />
           )}
         </IconButton>
+
+        {/* PROFILE BUTTON */}
+        {localStorage.getItem("logged") === "true" && (
+          <IconButton 
+            onClick={() => window.location.href = "/profile"} 
+            aria-label="Profile"
+          >
+            <PersonOutlinedIcon />
+          </IconButton>
+        )}
         
       </Box>
     </Box>

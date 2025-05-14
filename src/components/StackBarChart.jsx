@@ -29,7 +29,8 @@ const StackBarChart = React.memo(( {customOptions} ) => {
       grid: {
         left: '2%',
         right: '2%',
-        bottom: '15%',
+        top: '20%',
+        bottom: '2%',
         containLabel: true
       },
       //cấu hình trục x

@@ -27,14 +27,30 @@ import { tokens } from "../../theme";
 import Header from "../../components/Header";
 import BarMixedLineChart from "../../components/BarMixedLineChart";
 import StackBarChart from "../../components/StackBarChart";
+import PieChart from "../../components/PieChart"; // Add this import
 
-// Mock devices and their colors
+// Update your DEVICES constant
 const DEVICES = [
-  { id: 1, name: "Air Conditioner", color: "#6870fa" }, // blueAccent
-  { id: 2, name: "Refrigerator", color: "#4cceac" },    // greenAccent
-  { id: 3, name: "Television", color: "#ffcc00" },      // yellowAccent
-  { id: 4, name: "Lighting", color: "#db4f4a" },        // redAccent
-  { id: 5, name: "Washing Machine", color: "#a3a3a3" }, // grey
+  { id: 1, name: "Air Conditioner", room: "Living Room", floor: "1st Floor", color: "#6870fa" },
+  { id: 2, name: "Refrigerator", room: "Kitchen", floor: "1st Floor", color: "#4cceac" },
+  { id: 3, name: "Television", room: "Living Room", floor: "1st Floor", color: "#ffcc00" },
+  { id: 4, name: "Lighting", room: "Living Room", floor: "1st Floor", color: "#db4f4a" },
+  { id: 5, name: "Washing Machine", room: "Laundry", floor: "2nd Floor", color: "#a3a3a3" },
+  { id: 6, name: "Lighting", room: "Kitchen", floor: "1st Floor", color: "#7e57c2" },
+  { id: 7, name: "Lighting", room: "Bedroom", floor: "2nd Floor", color: "#26c6da" },
+  { id: 8, name: "Lighting", room: "Bathroom", floor: "2nd Floor", color: "#ff7043" },
+  { id: 9, name: "Heating System", room: "Living Room", floor: "1st Floor", color: "#6870fa" },
+  { id: 10, name: "Dishwasher", room: "Kitchen", floor: "1st Floor", color: "#ff7043" },
+  { id: 11, name: "Computer", room: "Office", floor: "2nd Floor", color: "#ff7043" },
+  { id: 12, name: "Printer", room: "Office", floor: "2nd Floor", color: "#ff7043" },
+  { id: 13, name: "Microwave", room: "Kitchen", floor: "1st Floor", color: "#ff7043" },
+  { id: 14, name: "Coffee Maker", room: "Kitchen", floor: "1st Floor", color: "#ff7043" },
+  { id: 15, name: "Electric Kettle", room: "Kitchen", floor: "1st Floor", color: "#26c6da" },
+  { id: 16, name: "Toaster", room: "Kitchen", floor: "1st Floor", color: "#7e57c2" },
+  { id: 17, name: "Vacuum Cleaner", room: "Living Room", floor: "1st Floor", color: "#a3a3a3" },
+  { id: 18, name: "Hair Dryer", room: "Bathroom", floor: "2nd Floor", color: "#db4f4a" },
+  { id: 19, name: "Electric Toothbrush", room: "Bathroom", floor: "2nd Floor", color: "#ffcc00" },
+  { id: 20, name: "Electric Shaver", room: "Bathroom", floor: "2nd Floor", color: "#4cceac" }
 ];
 
 // Generate mock data
@@ -141,11 +157,8 @@ const ConsumptionPage = () => {
   // Fixed energy unit (removed selector)
   const energyUnit = "kWh";
   
-  // Date picker state
-  const [isDatePickerOpen, setIsDatePickerOpen] = useState(false);
-  
-  // New state for inline date picker visibility
-  const [isDatePickerVisible, setIsDatePickerVisible] = useState(false);
+  // New state for grouping mode
+  const [groupingMode, setGroupingMode] = useState('device'); // Options: 'device', 'room', 'floor'
   
   // Load data when date or view type changes
   useEffect(() => {
@@ -179,27 +192,67 @@ const ConsumptionPage = () => {
   const chartOptions = useMemo(() => {
     if (!consumptionData.length) return {};
     
-    const series = DEVICES.map(device => ({
-      name: device.name,
-      type: 'bar',
-      stack: 'consumption',
-      emphasis: { focus: 'series' },
-      itemStyle: { color: device.color },
-      data: consumptionData.map(entry => [
-        entry.timestamp,
-        entry.devices[device.id]
-      ])
-    }));
+    let series = [];
+    let legendData = [];
     
-    // Remove the total line since we're using a stacked bar chart
+    if (groupingMode === 'device') {
+      // Original device-based series
+      series = DEVICES.map(device => ({
+        name: device.name,
+        type: 'bar',
+        stack: 'consumption',
+        itemStyle: { color: device.color },
+        data: consumptionData.map(entry => [
+          entry.timestamp,
+          entry.devices[device.id]
+        ])
+      }));
+      legendData = DEVICES.map(d => d.name);
+    } 
+    else if (groupingMode === 'room' || groupingMode === 'floor') {
+      // Group by room or floor
+      const groupKey = groupingMode === 'room' ? 'room' : 'floor';
+      const groups = {};
+      
+      // Get unique rooms or floors and initialize groups
+      const uniqueGroups = [...new Set(DEVICES.map(d => d[groupKey]))];
+      uniqueGroups.forEach((group, idx) => {
+        groups[group] = {
+          name: group,
+          color: getColorForGroup(idx),
+          devicesInGroup: DEVICES.filter(d => d[groupKey] === group)
+        };
+      });
+      
+      // Generate a series for each group
+      series = Object.values(groups).map(group => {
+        const deviceIds = group.devicesInGroup.map(d => d.id);
+        
+        return {
+          name: group.name,
+          type: 'bar',
+          stack: 'consumption',
+          itemStyle: { color: group.color },
+          data: consumptionData.map(entry => {
+            // Sum the consumption of all devices in this group
+            const groupConsumption = deviceIds.reduce((sum, deviceId) => {
+              return sum + (entry.devices[deviceId] || 0);
+            }, 0);
+            return [entry.timestamp, groupConsumption];
+          })
+        };
+      });
+      
+      legendData = uniqueGroups;
+    }
     
-    const unitLabel = energyUnit === 'kWh' ? 'kWh' : 'watt';
     
     return {
       legend: {
-        data: DEVICES.map(d => d.name),
+        data: legendData,
         textStyle: { color: colors.primary[100] },
         top: '0%',
+        selected: {} // All selected by default
       },
       xAxis: {
         type: 'time',
@@ -214,16 +267,13 @@ const ConsumptionPage = () => {
         }
       },
       yAxis: {
-        name: unitLabel,
-        nameTextStyle: { color: colors.primary[100] },
+        axisLabel: {
+          formatter: '{value} ' + energyUnit,
+        },
         axisLine: { show: true },
       },
       series,
       tooltip: {
-        // trigger: 'axis',
-        // axisPointer: {
-        //   type: 'shadow'
-        // },
         formatter: (params) => {
           if (Array.isArray(params)) {
             // Group tooltip
@@ -241,7 +291,7 @@ const ConsumptionPage = () => {
                   <span style="display: inline-block; width: 10px; height: 10px; border-radius: 50%; background-color: ${param.color}; margin-right: 5px"></span>
                   ${param.seriesName}
                 </div>
-                <div style="margin-left: 15px; font-weight: bold">${param.value[1].toFixed(2)} ${unitLabel}</div>
+                <div style="margin-left: 15px; font-weight: bold">${param.value[1].toFixed(2)} ${energyUnit}</div>
               </div>`;
               total += param.value[1];
             });
@@ -249,7 +299,7 @@ const ConsumptionPage = () => {
             content += `<div style="margin-top: 5px; border-top: 1px solid rgba(255,255,255,0.3); padding-top: 5px">
               <div style="display: flex; justify-content: space-between; font-weight: bold">
                 <div>Total</div>
-                <div style="margin-left: 15px">${total.toFixed(2)} ${unitLabel}</div>
+                <div style="margin-left: 15px">${total.toFixed(2)} ${energyUnit}</div>
               </div>
             </div>`;
             
@@ -259,7 +309,7 @@ const ConsumptionPage = () => {
         }
       }
     };
-  }, [consumptionData, colors, viewType, energyUnit]);
+  }, [consumptionData, colors, viewType, energyUnit, groupingMode]);
   
   // Calculate consumption statistics
   const stats = useMemo(() => {
@@ -298,14 +348,14 @@ const ConsumptionPage = () => {
     return { total, highest, deviceBreakdown };
   }, [consumptionData]);
 
-  // Format the date display
-  const dateDisplay = useMemo(() => {
-    if (viewType === 'day') {
-      return format(selectedDate, 'EEEE, MMMM d, yyyy');
-    } else {
-      return format(selectedDate, 'MMMM yyyy');
-    }
-  }, [selectedDate, viewType]);
+  // // Format the date display
+  // const dateDisplay = useMemo(() => {
+  //   if (viewType === 'day') {
+  //     return format(selectedDate, 'EEEE, MMMM d, yyyy');
+  //   } else {
+  //     return format(selectedDate, 'MMMM yyyy');
+  //   }
+  // }, [selectedDate, viewType]);
   
   return (
     <Box m="20px">
@@ -574,54 +624,84 @@ const ConsumptionPage = () => {
               Consumption by Device
             </Typography>
             
-            {/* Device Breakdown */}
-            <Stack spacing={2} sx={{ height: "calc(100% - 40px)", overflow: 'auto' }}>
-              {stats.deviceBreakdown.map((device) => (
-                <Paper 
-                  key={device.id}
-                  sx={{ 
-                    p: 2, 
-                    bgcolor: colors.primary[700],
-                    borderLeft: `4px solid ${device.color}`
+            {/* Replace the Stack with PieChart */}
+            <Box sx={{ height: "calc(100% - 40px)" }}>
+              {stats.deviceBreakdown.length > 0 && (
+                <PieChart
+                  data={{
+                    series: stats.deviceBreakdown.map(device => device.total),
+                    labels: stats.deviceBreakdown.map(device => device.name),
+                    colors: stats.deviceBreakdown.map(device => device.color),
+                    unit: energyUnit
                   }}
-                >
-                  <Typography variant="h5" sx={{ mb: 1 }}>
-                    {device.name}
-                  </Typography>
-                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <Typography variant="h4" sx={{ fontWeight: 'bold' }}>
-                      {device.total.toFixed(2)} {energyUnit}
-                    </Typography>
-                    <Typography variant="body1" color={colors.grey[300]}>
-                      {((device.total / stats.total) * 100).toFixed(1)}%
-                    </Typography>
-                  </Box>
-                  <Box 
-                    sx={{ 
-                      mt: 1, 
-                      width: '100%', 
-                      height: 8, 
-                      bgcolor: colors.grey[700],
-                      borderRadius: 5,
-                      overflow: 'hidden'
-                    }}
-                  >
-                    <Box 
-                      sx={{ 
-                        width: `${(device.total / stats.total) * 100}%`, 
-                        height: '100%',
-                        bgcolor: device.color
-                      }} 
-                    />
-                  </Box>
-                </Paper>
-              ))}
-            </Stack>
+                  height="100%"
+                  customOptions={{
+                    legend: {
+                      show: true,
+                      position: 'bottom',
+                      fontSize: '12px',
+                      formatter: function(seriesName, opts) {
+                        // Show device name and percentage
+                        const device = stats.deviceBreakdown[opts.seriesIndex];
+                        const percentage = ((device.total / stats.total) * 100).toFixed(1);
+                        return `${seriesName}: ${percentage}%`;
+                      }
+                    },
+                    tooltip: {
+                      y: {
+                        formatter: function(val) {
+                          return val.toFixed(2) + ' ' + energyUnit;
+                        }
+                      }
+                    }
+                  }}
+                />
+              )}
+            </Box>
           </Paper>
         </Box>
+      </Box>
+      
+      {/* Grouping mode buttons - above the chart */}
+      <Box sx={{ mb: 2 }}>
+        <Typography variant="body1" display="inline" sx={{ mr: 2 }}>
+          Group by:
+        </Typography>
+        <Button 
+          variant={groupingMode === 'device' ? 'contained' : 'outlined'}
+          size="small"
+          onClick={() => setGroupingMode('device')}
+          sx={{ mr: 1 }}
+        >
+          Device
+        </Button>
+        <Button
+          variant={groupingMode === 'room' ? 'contained' : 'outlined'} 
+          size="small"
+          onClick={() => setGroupingMode('room')}
+          sx={{ mr: 1 }}
+        >
+          Room
+        </Button>
+        <Button 
+          variant={groupingMode === 'floor' ? 'contained' : 'outlined'}
+          size="small"
+          onClick={() => setGroupingMode('floor')}
+        >
+          Floor
+        </Button>
       </Box>
     </Box>
   );
 };
 
 export default ConsumptionPage;
+
+// Add this helper function to generate colors for groups
+const getColorForGroup = (index) => {
+  const groupColors = [
+    "#6870fa", "#4cceac", "#ffcc00", "#db4f4a", 
+    "#a3a3a3", "#7e57c2", "#26c6da", "#ff7043"
+  ];
+  return groupColors[index % groupColors.length];
+};

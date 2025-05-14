@@ -73,10 +73,10 @@ const Dashboard = () => {
         const date = new Date(item.month);
         return date.toLocaleString('default', { month: 'short', year: '2-digit' });
       }),
-      axisLabel: {
-        interval: 0,
-        rotate: 45
-      }
+      // axisLabel: {
+      //   interval: 0,
+      //   rotate: 45
+      // }
     },
     yAxis: [
       {

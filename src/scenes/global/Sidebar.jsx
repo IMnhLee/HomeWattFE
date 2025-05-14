@@ -97,7 +97,7 @@ const ProSidebar = ({
           subItems: [
             { title: 'Overview', to: "/", icon: <MonitorHeartOutlinedIcon /> },
             { title: "Applicant", to: "/monitoring/app", icon: <SpeedIcon /> },
-            { title: "Usage-by-location", to: "/monitoring/usagebylocation", icon: <TimelineOutlinedIcon /> },
+            { title: "Usage", to: "/consumptions", icon: <TimelineOutlinedIcon /> },
             { title: "Emission", to: "/monitoring/emission", icon: <Co2OutlinedIcon /> },
           ],
           defaultOpen: false, // Thêm lại defaultOpen cho Dashboard
