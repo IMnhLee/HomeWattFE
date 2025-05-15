@@ -11,14 +11,20 @@ import {
   Stack,
   Button,
   TextField,
-  Dialog
+  Dialog,
+  FormControl,
+  InputLabel,
+  Select,
+  MenuItem,
+  Chip
 } from "@mui/material";
 import { 
   CalendarToday,
   NavigateBefore, 
   NavigateNext,
   InfoOutlined,
-  EventNote
+  EventNote,
+  FilterAlt
 } from "@mui/icons-material";
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
 import { LocalizationProvider, DatePicker } from '@mui/x-date-pickers';
@@ -27,9 +33,8 @@ import { tokens } from "../../theme";
 import Header from "../../components/Header";
 import BarMixedLineChart from "../../components/BarMixedLineChart";
 import StackBarChart from "../../components/StackBarChart";
-import PieChart from "../../components/PieChart"; // Add this import
 
-// Update your DEVICES constant
+// Mock devices and their colors
 const DEVICES = [
   { id: 1, name: "Air Conditioner", room: "Living Room", floor: "1st Floor", color: "#6870fa" },
   { id: 2, name: "Refrigerator", room: "Kitchen", floor: "1st Floor", color: "#4cceac" },
@@ -157,8 +162,39 @@ const ConsumptionPage = () => {
   // Fixed energy unit (removed selector)
   const energyUnit = "kWh";
   
-  // New state for grouping mode
-  const [groupingMode, setGroupingMode] = useState('device'); // Options: 'device', 'room', 'floor'
+  // Date picker state
+  const [isDatePickerOpen, setIsDatePickerOpen] = useState(false);
+  
+  // New state for inline date picker visibility
+  const [isDatePickerVisible, setIsDatePickerVisible] = useState(false);
+  
+  // Filter states
+  const [filterType, setFilterType] = useState('none'); // 'none', 'floor', 'room'
+  const [selectedFloor, setSelectedFloor] = useState('');
+  const [selectedRoom, setSelectedRoom] = useState('');
+  
+  // Derived data for filters
+  const uniqueFloors = useMemo(() => 
+    [...new Set(DEVICES.map(device => device.floor))].sort(),
+    []
+  );
+  
+  const uniqueRooms = useMemo(() => 
+    [...new Set(DEVICES.map(device => device.room))].sort(),
+    []
+  );
+  
+  // Filter devices based on selected criteria
+  const filteredDevices = useMemo(() => {
+    if (filterType === 'none') return DEVICES;
+    if (filterType === 'floor' && selectedFloor) {
+      return DEVICES.filter(device => device.floor === selectedFloor);
+    }
+    if (filterType === 'room' && selectedRoom) {
+      return DEVICES.filter(device => device.room === selectedRoom);
+    }
+    return DEVICES;
+  }, [filterType, selectedFloor, selectedRoom]);
   
   // Load data when date or view type changes
   useEffect(() => {
@@ -179,80 +215,30 @@ const ConsumptionPage = () => {
     setConsumptionData(data);
   }, [selectedDate, viewType]);
   
-  // Handle date navigation
-  const handleDateChange = (direction) => {
-    if (viewType === 'day') {
-      setSelectedDate(direction === 'next' ? addDays(selectedDate, 1) : subDays(selectedDate, 1));
-    } else {
-      setSelectedDate(direction === 'next' ? addMonths(selectedDate, 1) : subMonths(selectedDate, 1));
-    }
-  };
   
-  // Prepare chart data for StackBarChart
+  // Update chart options to use filtered devices
   const chartOptions = useMemo(() => {
     if (!consumptionData.length) return {};
     
-    let series = [];
-    let legendData = [];
+    const series = filteredDevices.map(device => ({
+      name: device.name,
+      type: 'bar',
+      stack: 'consumption',
+      itemStyle: { color: device.color },
+      data: consumptionData.map(entry => [
+        entry.timestamp,
+        entry.devices[device.id]
+      ])
+    }));
     
-    if (groupingMode === 'device') {
-      // Original device-based series
-      series = DEVICES.map(device => ({
-        name: device.name,
-        type: 'bar',
-        stack: 'consumption',
-        itemStyle: { color: device.color },
-        data: consumptionData.map(entry => [
-          entry.timestamp,
-          entry.devices[device.id]
-        ])
-      }));
-      legendData = DEVICES.map(d => d.name);
-    } 
-    else if (groupingMode === 'room' || groupingMode === 'floor') {
-      // Group by room or floor
-      const groupKey = groupingMode === 'room' ? 'room' : 'floor';
-      const groups = {};
-      
-      // Get unique rooms or floors and initialize groups
-      const uniqueGroups = [...new Set(DEVICES.map(d => d[groupKey]))];
-      uniqueGroups.forEach((group, idx) => {
-        groups[group] = {
-          name: group,
-          color: getColorForGroup(idx),
-          devicesInGroup: DEVICES.filter(d => d[groupKey] === group)
-        };
-      });
-      
-      // Generate a series for each group
-      series = Object.values(groups).map(group => {
-        const deviceIds = group.devicesInGroup.map(d => d.id);
-        
-        return {
-          name: group.name,
-          type: 'bar',
-          stack: 'consumption',
-          itemStyle: { color: group.color },
-          data: consumptionData.map(entry => {
-            // Sum the consumption of all devices in this group
-            const groupConsumption = deviceIds.reduce((sum, deviceId) => {
-              return sum + (entry.devices[deviceId] || 0);
-            }, 0);
-            return [entry.timestamp, groupConsumption];
-          })
-        };
-      });
-      
-      legendData = uniqueGroups;
-    }
-    
+    const unitLabel = energyUnit === 'kWh' ? 'kWh' : 'watt';
     
     return {
       legend: {
-        data: legendData,
+        data: filteredDevices.map(d => d.name),
         textStyle: { color: colors.primary[100] },
         top: '0%',
-        selected: {} // All selected by default
+        type: 'scroll',
       },
       xAxis: {
         type: 'time',
@@ -267,9 +253,8 @@ const ConsumptionPage = () => {
         }
       },
       yAxis: {
-        axisLabel: {
-          formatter: '{value} ' + energyUnit,
-        },
+        name: unitLabel,
+        nameTextStyle: { color: colors.primary[100] },
         axisLine: { show: true },
       },
       series,
@@ -291,7 +276,7 @@ const ConsumptionPage = () => {
                   <span style="display: inline-block; width: 10px; height: 10px; border-radius: 50%; background-color: ${param.color}; margin-right: 5px"></span>
                   ${param.seriesName}
                 </div>
-                <div style="margin-left: 15px; font-weight: bold">${param.value[1].toFixed(2)} ${energyUnit}</div>
+                <div style="margin-left: 15px; font-weight: bold">${param.value[1].toFixed(2)} ${unitLabel}</div>
               </div>`;
               total += param.value[1];
             });
@@ -299,7 +284,7 @@ const ConsumptionPage = () => {
             content += `<div style="margin-top: 5px; border-top: 1px solid rgba(255,255,255,0.3); padding-top: 5px">
               <div style="display: flex; justify-content: space-between; font-weight: bold">
                 <div>Total</div>
-                <div style="margin-left: 15px">${total.toFixed(2)} ${energyUnit}</div>
+                <div style="margin-left: 15px">${total.toFixed(2)} ${unitLabel}</div>
               </div>
             </div>`;
             
@@ -309,53 +294,75 @@ const ConsumptionPage = () => {
         }
       }
     };
-  }, [consumptionData, colors, viewType, energyUnit, groupingMode]);
+  }, [consumptionData, colors, viewType, energyUnit, filteredDevices]);
   
-  // Calculate consumption statistics
+  // Update the stats calculation to use filtered devices
   const stats = useMemo(() => {
     if (!consumptionData.length) return { total: 0, highest: 0, deviceBreakdown: [] };
     
-    // Calculate total consumption
-    const total = consumptionData.reduce((sum, entry) => sum + entry.total, 0);
+    // Get IDs of filtered devices
+    const filteredDeviceIds = filteredDevices.map(device => device.id);
     
-    // Calculate highest hour/day
+    // Calculate total consumption for filtered devices only
+    const total = consumptionData.reduce((sum, entry) => {
+      let filteredTotal = 0;
+      Object.entries(entry.devices).forEach(([deviceId, consumption]) => {
+        if (filteredDeviceIds.includes(Number(deviceId))) {
+          filteredTotal += consumption;
+        }
+      });
+      return sum + filteredTotal;
+    }, 0);
+    
+    // Calculate highest hour/day for filtered devices
     let highest = { value: 0, timestamp: null };
     consumptionData.forEach(entry => {
-      if (entry.total > highest.value) {
-        highest = { value: entry.total, timestamp: entry.timestamp };
+      let filteredEntryTotal = 0;
+      Object.entries(entry.devices).forEach(([deviceId, consumption]) => {
+        if (filteredDeviceIds.includes(Number(deviceId))) {
+          filteredEntryTotal += consumption;
+        }
+      });
+      
+      if (filteredEntryTotal > highest.value) {
+        highest = { value: filteredEntryTotal, timestamp: entry.timestamp };
       }
     });
     
-    // Calculate device breakdown
+    // Calculate device breakdown for filtered devices
     const deviceTotals = {};
-    DEVICES.forEach(device => {
+    filteredDevices.forEach(device => {
       deviceTotals[device.id] = {
         id: device.id,
         name: device.name,
         color: device.color,
+        room: device.room,
+        floor: device.floor,
         total: 0
       };
     });
     
     consumptionData.forEach(entry => {
       Object.entries(entry.devices).forEach(([deviceId, consumption]) => {
-        deviceTotals[deviceId].total += consumption;
+        if (deviceTotals[deviceId]) {
+          deviceTotals[deviceId].total += consumption;
+        }
       });
     });
     
     const deviceBreakdown = Object.values(deviceTotals).sort((a, b) => b.total - a.total);
     
     return { total, highest, deviceBreakdown };
-  }, [consumptionData]);
-
-  // // Format the date display
-  // const dateDisplay = useMemo(() => {
-  //   if (viewType === 'day') {
-  //     return format(selectedDate, 'EEEE, MMMM d, yyyy');
-  //   } else {
-  //     return format(selectedDate, 'MMMM yyyy');
-  //   }
-  // }, [selectedDate, viewType]);
+  }, [consumptionData, filteredDevices]);
+  
+  // Format the date display
+  const dateDisplay = useMemo(() => {
+    if (viewType === 'day') {
+      return format(selectedDate, 'EEEE, MMMM d, yyyy');
+    } else {
+      return format(selectedDate, 'MMMM yyyy');
+    }
+  }, [selectedDate, viewType]);
   
   return (
     <Box m="20px">
@@ -364,22 +371,109 @@ const ConsumptionPage = () => {
       {/* Responsive control section */}
       <Box 
         display="grid" 
-        gridTemplateColumns={{ xs: "1fr", md: "1fr 1fr" }}
+        gridTemplateColumns={{ xs: "1fr", md: "2fr 1fr" }}
         gap="16px"
         mb="20px"
       >
-        {/* View type toggle */}
-        <Box>
+        {/* View type toggle and filters */}
+        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2, alignItems: 'center' }}>
           <Tabs
             value={viewType}
             onChange={(e, newValue) => setViewType(newValue)}
             textColor="secondary"
             indicatorColor="secondary"
-            // variant="fullWidth"
           >
             <Tab value="day" label="Daily" />
             <Tab value="month" label="Monthly" />
           </Tabs>
+          
+          {/* Room/Floor filters */}
+          <Box sx={{ 
+            display: 'flex', 
+            alignItems: 'center', 
+            gap: 1,
+            flexWrap: 'wrap',
+            ml: { xs: 0, sm: 2 }
+          }}>
+            <FormControl 
+              size="small" 
+              sx={{ 
+                minWidth: 140,
+                "& .MuiInputLabel-root": {
+                  color: colors.grey[200]
+                }
+              }}
+            >
+              <InputLabel id="room-filter-label">Room</InputLabel>
+              <Select
+                labelId="room-filter-label"
+                value={selectedRoom}
+                label="Room"
+                onChange={(e) => {
+                  if (e.target.value) {
+                    setFilterType('room');
+                    setSelectedRoom(e.target.value);
+                    setSelectedFloor(''); // Clear floor when selecting room
+                  } else {
+                    setFilterType('none');
+                    setSelectedRoom('');
+                  }
+                }}
+                sx={{
+                  bgcolor: colors.primary[400],
+                  color: colors.grey[100],
+                  "& .MuiSvgIcon-root": {
+                    color: colors.grey[200]
+                  }
+                }}
+              >
+                <MenuItem value="">All Rooms</MenuItem>
+                {uniqueRooms.map((room) => (
+                  <MenuItem key={room} value={room}>{room}</MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+            
+            <FormControl 
+              size="small" 
+              sx={{ 
+                minWidth: 140,
+                "& .MuiInputLabel-root": {
+                  color: colors.grey[200]
+                }
+              }}
+            >
+              <InputLabel id="floor-filter-label">Floor</InputLabel>
+              <Select
+                labelId="floor-filter-label"
+                value={selectedFloor}
+                label="Floor"
+                onChange={(e) => {
+                  if (e.target.value) {
+                    setFilterType('floor');
+                    setSelectedFloor(e.target.value);
+                    setSelectedRoom(''); // Clear room when selecting floor
+                  } else {
+                    setFilterType('none');
+                    setSelectedFloor('');
+                  }
+                }}
+                sx={{
+                  bgcolor: colors.primary[400],
+                  color: colors.grey[100],
+                  "& .MuiSvgIcon-root": {
+                    color: colors.grey[200]
+                  }
+                }}
+              >
+                <MenuItem value="">All Floors</MenuItem>
+                {uniqueFloors.map((floor) => (
+                  <MenuItem key={floor} value={floor}>{floor}</MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+            
+          </Box>
         </Box>
         
         {/* Date navigation */}
@@ -387,24 +481,14 @@ const ConsumptionPage = () => {
           sx={{
             display: "flex",
             justifyContent: { xs: "center", md: "flex-end" },
-            alignItems: "center"
+            // alignItems: "center"
           }}
         >
           <Stack 
             direction="row" 
             spacing={{ xs: 0.5, sm: 1 }} 
             alignItems="center" 
-          >
-            <IconButton 
-              onClick={() => handleDateChange('prev')}
-              sx={{ 
-                bgcolor: colors.primary[400],
-                "&:hover": { bgcolor: colors.primary[300] }
-              }}
-            >
-              <NavigateBefore />
-            </IconButton>
-            
+          >      
             <LocalizationProvider dateAdapter={AdapterDateFns}>
               {viewType === 'day' ? (
                 <DatePicker
@@ -414,15 +498,6 @@ const ConsumptionPage = () => {
                   }}
                   disableFuture
                   format="MMM d, yyyy"
-                  sx={{ 
-                    width: { xs: "140px", sm: "auto" },
-                    "& .MuiInputBase-root": { 
-                      bgcolor: colors.primary[400],
-                      borderRadius: 1,
-                      color: colors.grey[100],
-                      fontSize: { xs: "0.875rem", sm: "1rem" }
-                    }
-                  }}
                 />
               ) : (
                 <DatePicker
@@ -433,38 +508,12 @@ const ConsumptionPage = () => {
                   }}
                   disableFuture
                   format="MMM yyyy"
-                  sx={{ 
-                    width: { xs: "120px", sm: "auto" },
-                    "& .MuiInputBase-root": { 
-                      bgcolor: colors.primary[400],
-                      borderRadius: 1,
-                      color: colors.grey[100],
-                      fontSize: { xs: "0.875rem", sm: "1rem" }
-                    }
-                  }}
                 />
               )}
             </LocalizationProvider>
             
             <IconButton 
-              onClick={() => handleDateChange('next')} 
-              disabled={selectedDate >= new Date()}
-              sx={{ 
-                bgcolor: colors.primary[400],
-                "&:hover": { bgcolor: colors.primary[300] },
-                "&.Mui-disabled": { bgcolor: colors.primary[700] }
-              }}
-            >
-              <NavigateNext />
-            </IconButton>
-            
-            <IconButton 
               onClick={() => setSelectedDate(new Date())}
-              sx={{ 
-                display: { xs: 'none', sm: 'flex' },
-                bgcolor: colors.primary[400],
-                "&:hover": { bgcolor: colors.primary[300] }
-              }}
             >
               <CalendarToday fontSize="small" />
             </IconButton>
@@ -599,6 +648,12 @@ const ConsumptionPage = () => {
           >
             <Typography variant="h5" sx={{ mb: 2 }}>
               {viewType === 'day' ? 'Hourly' : 'Daily'} Energy Consumption
+              {filterType !== 'none' && (
+                <Box component="span" sx={{ ml: 1, color: colors.greenAccent[400], fontSize: '0.9em' }}>
+                  {filterType === 'floor' && selectedFloor ? ` - ${selectedFloor}` : ''}
+                  {filterType === 'room' && selectedRoom ? ` - ${selectedRoom}` : ''}
+                </Box>
+              )}
             </Typography>
             <Box sx={{ height: "calc(100% - 40px)" }}>
               <StackBarChart 
@@ -621,87 +676,74 @@ const ConsumptionPage = () => {
             }}
           >
             <Typography variant="h5" sx={{ mb: 2 }}>
-              Consumption by Device
+              {filterType === 'none' 
+                ? 'Consumption by Device' 
+                : filterType === 'floor' && selectedFloor 
+                  ? `Devices on ${selectedFloor}` 
+                  : filterType === 'room' && selectedRoom 
+                    ? `Devices in ${selectedRoom}` 
+                    : 'Consumption by Device'}
             </Typography>
             
-            {/* Replace the Stack with PieChart */}
-            <Box sx={{ height: "calc(100% - 40px)" }}>
-              {stats.deviceBreakdown.length > 0 && (
-                <PieChart
-                  data={{
-                    series: stats.deviceBreakdown.map(device => device.total),
-                    labels: stats.deviceBreakdown.map(device => device.name),
-                    colors: stats.deviceBreakdown.map(device => device.color),
-                    unit: energyUnit
+            {filterType !== 'none' && stats.deviceBreakdown.length > 0 && (
+              <Box sx={{ mb: 2, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <Typography variant="body2" color={colors.grey[300]}>
+                  Showing {stats.deviceBreakdown.length} {stats.deviceBreakdown.length === 1 ? 'device' : 'devices'}
+                </Typography>
+                <Typography variant="body2" color={colors.grey[300]}>
+                  {stats.total.toFixed(2)} {energyUnit} total
+                </Typography>
+              </Box>
+            )}
+            
+            {/* Device Breakdown */}
+            <Stack spacing={2} sx={{ height: "calc(100% - 40px)", overflow: 'auto' }}>
+              {stats.deviceBreakdown.map((device) => (
+                <Paper 
+                  key={device.id}
+                  sx={{ 
+                    p: 2, 
+                    bgcolor: colors.primary[700],
+                    borderLeft: `4px solid ${device.color}`
                   }}
-                  height="100%"
-                  customOptions={{
-                    legend: {
-                      show: true,
-                      position: 'bottom',
-                      fontSize: '12px',
-                      formatter: function(seriesName, opts) {
-                        // Show device name and percentage
-                        const device = stats.deviceBreakdown[opts.seriesIndex];
-                        const percentage = ((device.total / stats.total) * 100).toFixed(1);
-                        return `${seriesName}: ${percentage}%`;
-                      }
-                    },
-                    tooltip: {
-                      y: {
-                        formatter: function(val) {
-                          return val.toFixed(2) + ' ' + energyUnit;
-                        }
-                      }
-                    }
-                  }}
-                />
-              )}
-            </Box>
+                >
+                  <Typography variant="h5" sx={{ mb: 1 }}>
+                    {device.name}
+                  </Typography>
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <Typography variant="h4" sx={{ fontWeight: 'bold' }}>
+                      {device.total.toFixed(2)} {energyUnit}
+                    </Typography>
+                    <Typography variant="body1" color={colors.grey[300]}>
+                      {((device.total / stats.total) * 100).toFixed(1)}%
+                    </Typography>
+                  </Box>
+                  <Box 
+                    sx={{ 
+                      mt: 1, 
+                      width: '100%', 
+                      height: 8, 
+                      bgcolor: colors.grey[700],
+                      borderRadius: 5,
+                      overflow: 'hidden'
+                    }}
+                  >
+                    <Box 
+                      sx={{ 
+                        width: `${(device.total / stats.total) * 100}%`, 
+                        height: '100%',
+                        bgcolor: device.color
+                      }} 
+                    />
+                  </Box>
+                </Paper>
+              ))}
+            </Stack>
           </Paper>
         </Box>
-      </Box>
-      
-      {/* Grouping mode buttons - above the chart */}
-      <Box sx={{ mb: 2 }}>
-        <Typography variant="body1" display="inline" sx={{ mr: 2 }}>
-          Group by:
-        </Typography>
-        <Button 
-          variant={groupingMode === 'device' ? 'contained' : 'outlined'}
-          size="small"
-          onClick={() => setGroupingMode('device')}
-          sx={{ mr: 1 }}
-        >
-          Device
-        </Button>
-        <Button
-          variant={groupingMode === 'room' ? 'contained' : 'outlined'} 
-          size="small"
-          onClick={() => setGroupingMode('room')}
-          sx={{ mr: 1 }}
-        >
-          Room
-        </Button>
-        <Button 
-          variant={groupingMode === 'floor' ? 'contained' : 'outlined'}
-          size="small"
-          onClick={() => setGroupingMode('floor')}
-        >
-          Floor
-        </Button>
       </Box>
     </Box>
   );
 };
 
 export default ConsumptionPage;
-
-// Add this helper function to generate colors for groups
-const getColorForGroup = (index) => {
-  const groupColors = [
-    "#6870fa", "#4cceac", "#ffcc00", "#db4f4a", 
-    "#a3a3a3", "#7e57c2", "#26c6da", "#ff7043"
-  ];
-  return groupColors[index % groupColors.length];
-};

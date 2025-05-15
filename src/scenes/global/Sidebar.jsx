@@ -120,7 +120,7 @@ const ProSidebar = ({
           defaultOpen: false, // Thêm lại defaultOpen cho Dashboard
         },
         { title: "Settings", to: "/setting", icon: <SettingsOutlinedIcon /> },
-        { title: "Statistics", to: "/statistics", icon: <QueryStatsOutlinedIcon /> },
+        { title: "report", to: "/report", icon: <QueryStatsOutlinedIcon /> },
       ],
     },
     {
