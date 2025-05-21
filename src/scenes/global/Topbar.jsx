@@ -6,19 +6,21 @@ import DarkModeOutlinedIcon from "@mui/icons-material/DarkModeOutlined";
 import LogoutOutlinedIcon from '@mui/icons-material/LogoutOutlined';
 import PersonOutlinedIcon from "@mui/icons-material/PersonOutlined";
 import { FaBars } from 'react-icons/fa';
+import { useNavigate } from "react-router-dom";
+import authApi from "../../services/auth";
 
-
-const Topbar = ({ broken, setToggled, toggled }) => {
+const Topbar = ({ broken, setToggled, toggled, setIsLoggedIn }) => {
   const theme = useTheme();
   const colors = tokens(theme.palette.mode);
   const colorMode = useContext(ColorModeContext);
-
-
+  const navigate = useNavigate();
   
-
   const handleLogout = () => {
-    localStorage.setItem("logged", "false");
-    window.location.reload();
+    const refreshToken = localStorage.getItem("refresh_token");
+    authApi.logout(refreshToken);
+    localStorage.clear();
+    setIsLoggedIn(false);
+    navigate("/login");
   }
   return (
     <Box display="flex" justifyContent="space-between" p={2}>

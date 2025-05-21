@@ -14,7 +14,9 @@ import {
   MenuItem,
   FormControl,
   InputLabel,
-  FormHelperText
+  FormHelperText,
+  Typography,
+  DialogContentText
 } from "@mui/material";
 import { DataGrid, GridToolbar } from "@mui/x-data-grid";
 import { tokens } from "../../theme";
@@ -22,6 +24,8 @@ import AddIcon from "@mui/icons-material/Add";
 import EditIcon from "@mui/icons-material/Edit";
 import DeleteIcon from "@mui/icons-material/Delete";
 import Header from "../../components/Header";
+import monitoringApi from "../../services/monitoring";
+import floorApi from "../../services/floor";
 
 const EnergyDeviceList = () => {
   const theme = useTheme();
@@ -30,86 +34,151 @@ const EnergyDeviceList = () => {
   // Available floors and rooms (would come from API)
   const [availableFloors, setAvailableFloors] = useState([]);
   const [availableRooms, setAvailableRooms] = useState([]);
-  const [isLoading, setIsLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const [devices, setDevices] = useState([]);
+  
+  // Pagination state
+  const [page, setPage] = useState(0);
+  const [pageSize, setPageSize] = useState(10);
+  const [totalCount, setTotalCount] = useState(0);
 
-  // Fetch floors and rooms from API on component mount
+  // Fetch devices and floors+rooms data
   useEffect(() => {
+    fetchMonitoringData();
     fetchFloorsAndRooms();
-  }, []);
+  }, [page, pageSize]);
 
-  // Simulated API call to fetch floors and rooms
+  // Function to fetch monitoring data from API
+const fetchMonitoringData = async () => {
+  setIsLoading(true);
+  try {
+    // API uses 1-based indexing for pages
+    const apiPage = page + 1;
+    const response = await monitoringApi.getAllMonitoring(apiPage, pageSize);
+    
+    if (response.data && Array.isArray(response.data.data)) {
+      // Update pagination metadata
+      setTotalCount(response.data.meta.totalCount);
+      
+      // Transform API data to match component's expected format
+      const formattedDevices = [];
+      
+      response.data.data.forEach(monitor => {
+        // Handle monitoring devices with no lines
+        if (!monitor.lines || monitor.lines.length === 0) {
+          formattedDevices.push({
+            id: monitor.id,
+            name: "No Line", // Changed from monitor.name
+            monitorName: monitor.name || "Unnamed Device", // Keep monitor name separately
+            monitoringCode: monitor.code || "",
+            lineId: "",
+            lineName: "",
+            floor: "",
+            room: ""
+          });
+        } else {
+          // For devices with lines, create a row for each line
+          monitor.lines.forEach(line => {
+            formattedDevices.push({
+              id: `${monitor.id}-${line.id}`, // Create a unique ID
+              monitorId: monitor.id,
+              lineId: line.id,
+              name: line.name || "Unnamed Line", // Using line.name for the name field
+              monitorName: monitor.name || "Unnamed Device", // Keep monitor name separately
+              monitoringCode: monitor.code || "",
+              lineName: line.name || "",
+              lineCode: line.code || "",
+              floor: line.room?.floor?.name || "",
+              room: line.room?.name || ""
+            });
+          });
+        }
+      });
+      
+      setDevices(formattedDevices);
+    }
+  } catch (error) {
+    console.error("Error fetching monitoring data:", error);
+  } finally {
+    setIsLoading(false);
+  }
+};
+
+  // Fetch floors and rooms from API
   const fetchFloorsAndRooms = async () => {
-    setIsLoading(true);
     try {
-      // In a real app, these would be API calls
-      // const floorsResponse = await api.getFloors();
-      // const roomsResponse = await api.getRooms();
+      const response = await floorApi.getAllFloor();
       
-      // Mock data - replace with actual API responses
-      const mockFloors = ["Tầng 1", "Tầng 2", "Tầng 3"];
-      const mockRooms = [
-        { id: 1, name: "Living Room", floor: "Tầng 1" },
-        { id: 2, name: "Kitchen", floor: "Tầng 1" },
-        { id: 3, name: "Master Bedroom", floor: "Tầng 2" },
-        { id: 4, name: "Study Room", floor: "Tầng 2" },
-        { id: 5, name: "Bathroom", floor: "Tầng 1" },
-        { id: 6, name: "Guest Room", floor: "Tầng 3" }
-      ];
-      
-      setAvailableFloors(mockFloors);
-      setAvailableRooms(mockRooms);
+      if (response.data) {
+        // Extract floors
+        const floors = response.data.map(floor => ({
+          id: floor.id,
+          name: floor.name
+        }));
+        setAvailableFloors(floors);
+        
+        // Extract rooms with their corresponding floor
+        const rooms = [];
+        response.data.forEach(floor => {
+          if (floor.rooms && floor.rooms.length > 0) {
+            floor.rooms.forEach(room => {
+              rooms.push({
+                id: room.id,
+                name: room.name,
+                floorId: floor.id,
+                floorName: floor.name
+              });
+            });
+          }
+        });
+        setAvailableRooms(rooms);
+      }
     } catch (error) {
       console.error("Error fetching floors and rooms:", error);
-    } finally {
-      setIsLoading(false);
     }
   };
 
   // Get rooms for selected floor
-  const getRoomsForFloor = (floorName) => {
-    if (!floorName) return [];
-    return availableRooms.filter(room => room.floor === floorName);
+  const getRoomsForFloor = (floorId) => {
+    if (!floorId) return [];
+    return availableRooms.filter(room => room.floorId === floorId);
   };
 
-  // Updated sample devices with floor, room, and monitoringCode
-  const [devices, setDevices] = useState([
-    { id: 1, name: "TV", floor: "Tầng 1", room: "Living Room", monitoringCode: "MT001", lineId: "1", lineName: "Line 1" },
-    { id: 2, name: "Air Conditioner", floor: "Tầng 2", room: "Master Bedroom", monitoringCode: "MT002", lineId: "2", lineName: "Line 2" },
-    { id: 3, name: "Refrigerator", floor: "Tầng 1", room: "Kitchen", monitoringCode: "MT003", lineId: "3", lineName: "Line 3" },
-    { id: 4, name: "Microwave", floor: "Tầng 1", room: "Kitchen", monitoringCode: "" },
-    { id: 5, name: "Lamp", floor: "Tầng 1", room: null, monitoringCode: "MT001", lineId: "2", lineName: "Line 2" },
-    { id: 6, name: "Fan", floor: "Tầng 2", room: "Study Room", monitoringCode: "MT004", lineId: "2", lineName: "Line 2" },
-    { id: 7, name: "Smart Light", floor: "Tầng 1", room: "Living Room", monitoringCode: "MT001", lineId: "3", lineName: "Line 3" },
-    { id: 8, name: "Heater", floor: null, room: null, monitoringCode: "MT005", lineId: "1", lineName: "Line 1" },
-  ]);
-  
   // Dialog state
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingDevice, setEditingDevice] = useState(null);
   const [newDevice, setNewDevice] = useState({
     name: "",
-    floor: "",
-    room: "",
-    monitoringCode: ""
+    floorId: "",
+    roomId: "",
   });
   
+  // Confirmation dialog state
+  const [confirmDelete, setConfirmDelete] = useState({
+    open: false,
+    device: null
+  });
+
   // Open dialog for adding/editing
   const openDeviceDialog = (device = null) => {
     if (device) {
+      // Find the floor ID based on the floor name
+      const floorId = availableFloors.find(f => f.name === device.floor)?.id || "";
+      // Find the room ID based on the room name and floor
+      const roomId = availableRooms.find(r => r.name === device.room && r.floorName === device.floor)?.id || "";
+      
       setEditingDevice(device);
       setNewDevice({
         name: device.name,
-        floor: device.floor || "",
-        room: device.room || "",
-        monitoringCode: device.monitoringCode || ""
+        floorId: floorId,
+        roomId: roomId,
       });
     } else {
       setEditingDevice(null);
       setNewDevice({
         name: "",
-        floor: "",
-        room: "",
-        monitoringCode: ""
+        floorId: "",
+        roomId: "",
       });
     }
     setDialogOpen(true);
@@ -124,40 +193,59 @@ const EnergyDeviceList = () => {
     });
     
     // Reset room when floor changes
-    if (name === 'floor') {
+    if (name === 'floorId') {
       setNewDevice(prev => ({
         ...prev,
-        room: ''
+        roomId: ''
       }));
     }
   };
   
-  // Save device
-  const handleSaveDevice = () => {
-    if (editingDevice) {
-      // Update existing device
-      setDevices(devices.map(device => 
-        device.id === editingDevice.id 
-          ? { ...device, ...newDevice }
-          : device
-      ));
-    } else {
-      // Add new device
-      const newId = Math.max(0, ...devices.map(d => d.id)) + 1;
-      setDevices([
-        ...devices, 
-        { 
-          id: newId,
-          ...newDevice
-        }
-      ]);
+  // Save device 
+  const handleSaveDevice = async () => {
+    try {
+      // Implementation for saving device would go here
+      // This would involve calling the appropriate API methods
+      
+      // Close the dialog and refresh data
+      setDialogOpen(false);
+      fetchMonitoringData();
+    } catch (error) {
+      console.error("Error saving device:", error);
     }
-    setDialogOpen(false);
+  };
+  
+  // Open delete confirmation
+  const openDeleteConfirmation = (device) => {
+    setConfirmDelete({
+      open: true,
+      device: device
+    });
+  };
+
+  // Close delete confirmation
+  const closeDeleteConfirmation = () => {
+    setConfirmDelete({
+      open: false,
+      device: null
+    });
   };
   
   // Delete device
-  const handleDeleteDevice = (id) => {
-    setDevices(devices.filter(device => device.id !== id));
+  const confirmDeleteDevice = async () => {
+    try {
+      if (confirmDelete.device) {
+        // Call API to delete the device
+        await monitoringApi.removeMonitoring(confirmDelete.device.monitorId);
+        
+        // Refresh data after deletion
+        fetchMonitoringData();
+      }
+      closeDeleteConfirmation();
+    } catch (error) {
+      console.error("Error deleting device:", error);
+      closeDeleteConfirmation();
+    }
   };
 
   // DataGrid columns definition
@@ -169,8 +257,7 @@ const EnergyDeviceList = () => {
       sortable: false,
       filterable: false,
       renderCell: (params) => {
-        // Calculate the row index (+1 for human-readable numbering)
-        return devices.indexOf(params.row) + 1;
+        return (page * pageSize) + devices.indexOf(params.row) + 1;
       }
     },
     { 
@@ -189,7 +276,7 @@ const EnergyDeviceList = () => {
       renderCell: (params) => params.value || "—"
     },
     {
-      field: 'lineName',
+      field: 'lineCode',
       headerName: 'Line',
       flex: 1,
       minWidth: 150,
@@ -229,7 +316,7 @@ const EnergyDeviceList = () => {
             <Tooltip title="Delete">
               <IconButton 
                 size="small" 
-                onClick={() => handleDeleteDevice(params.row.id)}
+                onClick={() => openDeleteConfirmation(params.row)}
                 color="error"
               >
                 <DeleteIcon fontSize="small" />
@@ -244,17 +331,6 @@ const EnergyDeviceList = () => {
   return (
     <Box m="20px">
       <Header title="Energy Consuming Devices" subtitle="Manage your energy consuming devices" />
-      
-      {/* <Box display="flex" justifyContent="flex-end" mb={3}>
-        <Button
-          variant="contained"
-          color="secondary"
-          startIcon={<AddIcon />}
-          onClick={() => openDeviceDialog()}
-        >
-          Add Device
-        </Button>
-      </Box> */}
 
       {/* DataGrid with built-in filtering */}
       <Box
@@ -297,22 +373,20 @@ const EnergyDeviceList = () => {
           <DataGrid
             rows={devices}
             columns={columns}
-            pageSize={10}
+            page={page}
+            pageSize={pageSize}
+            rowCount={totalCount}
             rowsPerPageOptions={[5, 10, 20]}
+            paginationMode="server"
+            onPageChange={(newPage) => setPage(newPage)}
+            onPageSizeChange={(newPageSize) => setPageSize(newPageSize)}
+            loading={isLoading}
             disableSelectionOnClick
             components={{ Toolbar: GridToolbar }}
             componentsProps={{
               toolbar: {
                 showQuickFilter: true,
                 quickFilterProps: { debounceMs: 500 },
-              },
-            }}
-            initialState={{
-              filter: {
-                filterModel: {
-                  items: [],
-                  quickFilterValues: [],
-                },
               },
             }}
           />
@@ -353,8 +427,8 @@ const EnergyDeviceList = () => {
               <Select
                 labelId="floor-select-label"
                 id="floor-select"
-                name="floor"
-                value={newDevice.floor}
+                name="floorId"
+                value={newDevice.floorId}
                 label="Floor"
                 onChange={handleInputChange}
               >
@@ -362,38 +436,36 @@ const EnergyDeviceList = () => {
                   <em>None</em>
                 </MenuItem>
                 {availableFloors.map((floor) => (
-                  <MenuItem key={floor} value={floor}>{floor}</MenuItem>
+                  <MenuItem key={floor.id} value={floor.id}>{floor.name}</MenuItem>
                 ))}
               </Select>
               <FormHelperText>Select a floor or leave empty</FormHelperText>
             </FormControl>
             
             {/* Room dropdown (filtered by selected floor) */}
-            <FormControl fullWidth margin="normal" disabled={!newDevice.floor}>
+            <FormControl fullWidth margin="normal" disabled={!newDevice.floorId}>
               <InputLabel id="room-select-label" sx={{ fontSize: "16px", "&.Mui-focused": {color: colors.primary[100]}}}>Room</InputLabel>
               <Select
                 labelId="room-select-label"
                 id="room-select"
-                name="room"
-                value={newDevice.room}
+                name="roomId"
+                value={newDevice.roomId}
                 label="Room"
                 onChange={handleInputChange}
               >
                 <MenuItem value="">
                   <em>None</em>
                 </MenuItem>
-                {getRoomsForFloor(newDevice.floor).map((room) => (
-                  <MenuItem key={room.id} value={room.name}>{room.name}</MenuItem>
+                {getRoomsForFloor(newDevice.floorId).map((room) => (
+                  <MenuItem key={room.id} value={room.id}>{room.name}</MenuItem>
                 ))}
               </Select>
               <FormHelperText>
-                {newDevice.floor 
+                {newDevice.floorId 
                   ? "Select a room or leave empty" 
                   : "Select a floor first"}
               </FormHelperText>
             </FormControl>
-            
-            {/* Removed Meter ID field */}
           </Box>
         </DialogContent>
         <DialogActions>
@@ -406,6 +478,30 @@ const EnergyDeviceList = () => {
             }}
           >
             Save
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Delete Confirmation Dialog */}
+      <Dialog
+        open={confirmDelete.open}
+        onClose={closeDeleteConfirmation}
+      >
+        <DialogTitle>
+          Confirm Deletion
+        </DialogTitle>
+        <DialogContent>
+          <DialogContentText>
+            Are you sure you want to delete device "{confirmDelete.device?.name}"? 
+            This will remove the monitoring device and all its associated lines.
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={closeDeleteConfirmation} sx={{color: colors.grey[100]}}>
+            Cancel
+          </Button>
+          <Button onClick={confirmDeleteDevice} color="error">
+            Delete
           </Button>
         </DialogActions>
       </Dialog>

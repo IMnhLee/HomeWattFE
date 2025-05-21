@@ -1,7 +1,7 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Box, Button, TextField, Typography, useTheme, 
-  Card, CardContent, IconButton, Divider, Switch,
-  FormControlLabel, Modal, useMediaQuery } from "@mui/material";
+  Card, CardContent, IconButton, Divider, FormControl,
+  Modal, useMediaQuery, RadioGroup, Radio, FormControlLabel } from "@mui/material";
 import { tokens } from "../../theme";
 import Header from "../../components/Header";
 import AddIcon from "@mui/icons-material/Add";
@@ -17,10 +17,11 @@ const ConfigBill = () => {
   
   // Responsive breakpoints
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
-  const isTablet = useMediaQuery(theme.breakpoints.down('md'));
-  const isLargeScreen = useMediaQuery(theme.breakpoints.up('lg'));
 
   const [loading, setLoading] = useState(false);
+
+  // Configuration type
+  const [selectedConfigType, setSelectedConfigType] = useState("tiered");
 
   // Price tiers state
   const [priceTiers, setPriceTiers] = useState([
@@ -32,31 +33,32 @@ const ConfigBill = () => {
     { id: 6, min: 401, max: null, price: 2927, name: "Tier 6 (>400 kWh)" },
   ]);
 
-  // Notifications settings
-  const [notifications, setNotifications] = useState({
-    emailEnabled: true,
-    highUsageAlert: true,
-    highUsageThreshold: 300
-  });
+  // Single price state
+  const [singlePrice, setSinglePrice] = useState(2000);
+
+  // Percentage-based price state
+  const [percentagePrices, setPercentagePrices] = useState([
+    { id: 1, percentage: 30, price: 1800, name: "Economy" },
+    { id: 2, percentage: 50, price: 2200, name: "Standard" },
+    { id: 3, percentage: 20, price: 2500, name: "Premium" }
+  ]);
 
   // Modal states
   const [tierModalOpen, setTierModalOpen] = useState(false);
+  const [percentageModalOpen, setPercentageModalOpen] = useState(false);
   const [editingTier, setEditingTier] = useState(null);
+  const [editingPercentage, setEditingPercentage] = useState(null);
   const [newTier, setNewTier] = useState({
     min: 0,
     max: 0,
     price: 0,
     name: ""
   });
-
-  // Handle notification settings changes
-  const handleNotificationChange = (e) => {
-    const { name, value, checked, type } = e.target;
-    setNotifications({
-      ...notifications,
-      [name]: type === "checkbox" ? checked : value
-    });
-  };
+  const [newPercentage, setNewPercentage] = useState({
+    percentage: 0,
+    price: 0,
+    name: ""
+  });
 
   // Open tier modal
   const openTierModal = (tier = null) => {
@@ -75,13 +77,27 @@ const ConfigBill = () => {
     setTierModalOpen(true);
   };
 
-  // Handle tier form input - CHỈ CHO PHÉP NHẬP SỐ
+  // Open percentage modal
+  const openPercentageModal = (percentage = null) => {
+    if (percentage) {
+      setEditingPercentage(percentage);
+      setNewPercentage({ ...percentage });
+    } else {
+      setEditingPercentage(null);
+      setNewPercentage({
+        percentage: 0,
+        price: 0,
+        name: `Price Type ${percentagePrices.length + 1}`
+      });
+    }
+    setPercentageModalOpen(true);
+  };
+
+  // Handle tier form input
   const handleTierInputChange = (e) => {
     const { name, value } = e.target;
     
-    // Xử lý các trường dữ liệu khác nhau
     if (name === "min" || name === "price") {
-      // Chỉ cho phép nhập số
       const numericValue = value.replace(/[^0-9]/g, '');
       
       setNewTier({
@@ -90,14 +106,12 @@ const ConfigBill = () => {
       });
     } 
     else if (name === "max") {
-      // Xử lý trường max đặc biệt - cho phép để trống (vô cùng)
       if (value === '' || value === 'null') {
         setNewTier({
           ...newTier,
           max: null
         });
       } else {
-        // Chỉ cho phép nhập số
         const numericValue = value.replace(/[^0-9]/g, '');
         
         setNewTier({
@@ -107,7 +121,6 @@ const ConfigBill = () => {
       }
     }
     else {
-      // Trường name - không giới hạn kiểu dữ liệu
       setNewTier({
         ...newTier,
         [name]: value
@@ -115,12 +128,37 @@ const ConfigBill = () => {
     }
   };
 
-  // Save tier với API call
+  // Handle percentage form input
+  const handlePercentageInputChange = (e) => {
+    const { name, value } = e.target;
+    
+    if (name === "percentage" || name === "price") {
+      const numericValue = value.replace(/[^0-9]/g, '');
+      
+      setNewPercentage({
+        ...newPercentage,
+        [name]: numericValue === '' ? 0 : parseInt(numericValue, 10)
+      });
+    } 
+    else {
+      setNewPercentage({
+        ...newPercentage,
+        [name]: value
+      });
+    }
+  };
+
+  // Handle single price input
+  const handleSinglePriceChange = (e) => {
+    const value = e.target.value.replace(/[^0-9]/g, '');
+    setSinglePrice(value === '' ? 0 : parseInt(value, 10));
+  };
+
+  // Save tier with API call
   const handleSaveTier = async () => {
     try {
       setLoading(true);
       
-      // Chuẩn bị dữ liệu để gửi API
       const tierData = {
         min: parseInt(newTier.min),
         max: newTier.max === '' ? null : (newTier.max === null ? null : parseInt(newTier.max)),
@@ -129,23 +167,19 @@ const ConfigBill = () => {
       };
       
       if (editingTier) {
-        // Cập nhật tier hiện có
-        // await axios.put(`/api/tiers/${editingTier.id}`, tierData);
+        // Update existing tier
         console.log('API call: Update tier', tierData);
         
-        // Cập nhật state sau khi API thành công
         setPriceTiers(
           priceTiers.map(tier => 
             tier.id === editingTier.id ? { ...tierData, id: tier.id } : tier
           )
         );
       } else {
-        // Thêm tier mới
+        // Add new tier
         const newId = Math.max(0, ...priceTiers.map(t => t.id)) + 1;
-        // const response = await axios.post('/api/tiers', { ...tierData, id: newId });
         console.log('API call: Add new tier', { ...tierData, id: newId });
         
-        // Cập nhật state sau khi API thành công
         setPriceTiers([...priceTiers, { ...tierData, id: newId }]);
       }
       
@@ -160,19 +194,80 @@ const ConfigBill = () => {
     }
   };
 
+  // Save percentage price with API call
+  const handleSavePercentage = async () => {
+    try {
+      setLoading(true);
+      
+      const percentageData = {
+        percentage: parseInt(newPercentage.percentage),
+        price: parseInt(newPercentage.price),
+        name: newPercentage.name
+      };
+      
+      if (editingPercentage) {
+        // Update existing percentage
+        console.log('API call: Update percentage price', percentageData);
+        
+        setPercentagePrices(
+          percentagePrices.map(item => 
+            item.id === editingPercentage.id ? { ...percentageData, id: item.id } : item
+          )
+        );
+      } else {
+        // Add new percentage
+        const newId = Math.max(0, ...percentagePrices.map(p => p.id)) + 1;
+        console.log('API call: Add new percentage price', { ...percentageData, id: newId });
+        
+        setPercentagePrices([...percentagePrices, { ...percentageData, id: newId }]);
+      }
+      
+      setPercentageModalOpen(false);
+      alert(editingPercentage ? "Percentage price updated successfully!" : "New percentage price added successfully!");
+      
+    } catch (error) {
+      console.error('Error saving percentage price:', error);
+      alert('Failed to save percentage price. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Save single price with API call
+  const handleSaveSinglePrice = async () => {
+    try {
+      setLoading(true);
+      console.log('API call: Save single price', singlePrice);
+      alert("Single price updated successfully!");
+    } catch (error) {
+      console.error('Error saving single price:', error);
+      alert('Failed to save single price. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Save configuration type with API call
+  const handleSaveConfigType = async () => {
+    try {
+      setLoading(true);
+      console.log('API call: Save configuration type', selectedConfigType);
+      alert(`Configuration type set to: ${selectedConfigType}`);
+    } catch (error) {
+      console.error('Error saving configuration type:', error);
+      alert('Failed to save configuration type. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   // Delete tier
   const handleDeleteTier = async (tierId) => {
     try {
       setLoading(true);
-      
-      // Gọi API xóa
-      // await axios.delete(`/api/tiers/${tierId}`);
       console.log('API call: Delete tier', tierId);
-      
-      // Sau khi xóa thành công, cập nhật state
       setPriceTiers(priceTiers.filter(tier => tier.id !== tierId));
       alert("Tier deleted successfully!");
-      
     } catch (error) {
       console.error('Error deleting tier:', error);
       alert('Failed to delete tier. Please try again.');
@@ -181,19 +276,16 @@ const ConfigBill = () => {
     }
   };
 
-  // Save notifications settings
-  const handleSaveNotifications = async () => {
+  // Delete percentage price
+  const handleDeletePercentage = async (percentageId) => {
     try {
       setLoading(true);
-      
-      // Gọi API lưu thông báo
-      // await axios.post('/api/notifications/settings', notifications);
-      console.log("Saving notification settings...", notifications);
-      
-      alert("Notification settings saved successfully!");
+      console.log('API call: Delete percentage price', percentageId);
+      setPercentagePrices(percentagePrices.filter(item => item.id !== percentageId));
+      alert("Percentage price deleted successfully!");
     } catch (error) {
-      console.error('Error saving notifications:', error);
-      alert('Failed to save notification settings. Please try again.');
+      console.error('Error deleting percentage price:', error);
+      alert('Failed to delete percentage price. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -219,7 +311,7 @@ const ConfigBill = () => {
     <Box m={{ xs: "10px", sm: "20px" }}>
       <Header 
         title="ELECTRICITY BILL CONFIGURATION" 
-        subtitle="Set up pricing tiers and notification parameters" 
+        subtitle="Set up pricing tiers" 
       />
       
       <Box
@@ -227,9 +319,117 @@ const ConfigBill = () => {
         gridTemplateColumns={{ xs: "1fr", md: "repeat(12, 1fr)" }}
         gap={{ xs: "15px", sm: "20px" }}
       >
+        {/* Configuration Type Selection Box */}
+        <Box gridColumn={{ xs: "span 12", md: "span 12" }}>
+          <Card sx={{ backgroundColor: colors.primary[400], boxShadow: 3, mb: { xs: 2, sm: 3 } }}>
+            <CardContent sx={{ p: { xs: 1.5, sm: 3 } }}>
+              <Typography 
+                variant={isMobile ? "h5" : "h4"} 
+                color={colors.grey[100]} 
+                fontWeight="bold"
+                mb={2}
+              >
+                Active Configuration Selection
+              </Typography>
+              
+              <Divider sx={{ mb: 2, borderColor: colors.grey[700] }} />
+              
+              <Box 
+                display="grid" 
+                gridTemplateColumns={{ xs: "1fr", sm: "1fr auto" }}
+                alignItems="center"
+                gap={2}
+              >
+                <FormControl component="fieldset">
+                  <RadioGroup
+                    value={selectedConfigType}
+                    onChange={(e) => setSelectedConfigType(e.target.value)}
+                    sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}
+                  >
+                    <FormControlLabel 
+                      value="tiered" 
+                      control={<Radio sx={{ '&.Mui-checked': {color: colors.primary[100]} }}/>} 
+                      label="Tiered Pricing" 
+                    />
+                    <FormControlLabel 
+                      value="single" 
+                      control={<Radio sx={{ '&.Mui-checked': {color: colors.primary[100]} }}/>} 
+                      label="Single Price" 
+                    />
+                    <FormControlLabel 
+                      value="percentage" 
+                      control={<Radio sx={{ '&.Mui-checked': {color: colors.primary[100]} }}/>} 
+                      label="Percentage-based Pricing" 
+                    />
+                  </RadioGroup>
+                </FormControl>
+                
+                <Button
+                  variant="contained"
+                  color="secondary"
+                  startIcon={<SaveIcon />}
+                  onClick={handleSaveConfigType}
+                  disabled={loading}
+                  size={isMobile ? "small" : "medium"}
+                >
+                  Save Configuration Type
+                </Button>
+              </Box>
+            </CardContent>
+          </Card>
+        </Box>
+
+        {/* Single Price */}
+        <Box gridColumn={{ xs: "span 12", md: "span 12" }}>
+          <Card sx={{ backgroundColor: colors.primary[400], boxShadow: 3, mb: { xs: 2, sm: 3 } }}>
+            <CardContent sx={{ p: { xs: 1.5, sm: 3 } }}>
+              <Typography 
+                variant={isMobile ? "h5" : "h4"} 
+                color={colors.grey[100]} 
+                fontWeight="bold"
+                mb={2}
+              >
+                Single Price Configuration
+              </Typography>
+              
+              <Divider sx={{ mb: 2, borderColor: colors.grey[700] }} />
+              
+              <Box 
+                display="grid" 
+                gridTemplateColumns={{ xs: "1fr", sm: "2fr 1fr" }}
+                gap={2}
+                alignItems="center"
+                sx={{
+                  p: { xs: 1.5, sm: 2 }, 
+                  borderRadius: 1,
+                  backgroundColor: colors.primary[400],
+                  border: `1px solid ${colors.grey[800]}`,
+                }}
+              >
+                <TextField
+                  label="Price (VND/kWh)"
+                  value={singlePrice}
+                  onChange={handleSinglePriceChange}
+                  size={isMobile ? "small" : "medium"}
+                />
+                <Button
+                  variant="contained"
+                  color="secondary"
+                  startIcon={<SaveIcon />}
+                  onClick={handleSaveSinglePrice}
+                  disabled={loading}
+                  size={isMobile ? "small" : "medium"}
+                >
+                  Save
+                </Button>
+              </Box>
+            </CardContent>
+          </Card>
+        </Box>
+        
         {/* Price Tiers */}
-        <Box gridColumn={{ xs: "span 12", md: "span 8" }}>
-          <Card sx={{ backgroundColor: colors.primary[400], boxShadow: 3, mb: { xs: 1, sm: 2 } }}>
+        <Box gridColumn={{ xs: "span 12", md: "span 12" }}>
+          <Card sx={{ backgroundColor: colors.primary[400], boxShadow: 3, mb: { xs: 2, sm: 3 } }}>
             <CardContent sx={{ p: { xs: 1.5, sm: 3 } }}>
               <Box 
                 display="flex" 
@@ -244,7 +444,7 @@ const ConfigBill = () => {
                   color={colors.grey[100]} 
                   fontWeight="bold"
                 >
-                  Price Tiers
+                  Tiered Pricing
                 </Typography>
                 <Button
                   variant="contained"
@@ -252,7 +452,6 @@ const ConfigBill = () => {
                   startIcon={<AddIcon />}
                   onClick={() => openTierModal()}
                   size={isMobile ? "small" : "medium"}
-                  sx={{ alignSelf: { xs: "stretch", sm: "auto" } }}
                 >
                   Add Tier
                 </Button>
@@ -357,86 +556,133 @@ const ConfigBill = () => {
             </CardContent>
           </Card>
         </Box>
-        
-        {/* Notifications card */}
-        <Box gridColumn={{ xs: "span 12", md: "span 4" }}>
-          <Card sx={{ backgroundColor: colors.primary[400], boxShadow: 3, mb: { xs: 1, sm: 2 } }}>
-            <CardContent sx={{ p: { xs: 1.5, sm: 2.5 } }}>
-              <Typography 
-                variant={isMobile ? "h5" : "h4"} 
-                color={colors.grey[100]} 
-                fontWeight="bold" 
+
+        {/* Percentage-based Pricing */}
+        <Box gridColumn={{ xs: "span 12", md: "span 12" }}>
+          <Card sx={{ backgroundColor: colors.primary[400], boxShadow: 3 }}>
+            <CardContent sx={{ p: { xs: 1.5, sm: 3 } }}>
+              <Box 
+                display="flex" 
+                flexDirection={{ xs: "column", sm: "row" }}
+                justifyContent="space-between" 
+                alignItems={{ xs: "stretch", sm: "center" }}
                 mb={2}
+                gap={1}
               >
-                Notification Settings
-              </Typography>
-              
-              <Box display="flex" flexDirection="column" gap={1.5}>
-                <FormControlLabel 
-                  control={
-                    <Switch 
-                      checked={notifications.emailEnabled}
-                      onChange={handleNotificationChange}
-                      name="emailEnabled"
-                      color="secondary"
-                      size={isMobile ? "small" : "medium"}
-                    />
-                  } 
-                  label="Email Notifications"
-                  sx={{ 
-                    '& .MuiFormControlLabel-label': { 
-                      fontSize: isMobile ? '0.875rem' : '1rem' 
-                    } 
-                  }}
-                />
-                
-                <FormControlLabel 
-                  control={
-                    <Switch 
-                      checked={notifications.highUsageAlert}
-                      onChange={handleNotificationChange}
-                      name="highUsageAlert"
-                      color="secondary"
-                      size={isMobile ? "small" : "medium"}
-                    />
-                  } 
-                  label="High Usage Alerts"
-                  sx={{ 
-                    '& .MuiFormControlLabel-label': { 
-                      fontSize: isMobile ? '0.875rem' : '1rem' 
-                    } 
-                  }}
-                />
-                
-                <TextField
-                  label="High Usage Threshold (kWh)"
-                  name="highUsageThreshold"
-                  type="number"
-                  value={notifications.highUsageThreshold}
-                  onChange={handleNotificationChange}
-                  fullWidth
-                  disabled={!notifications.highUsageAlert}
-                  InputProps={{ 
-                    inputProps: { min: 0 },
-                    endAdornment: <Typography variant={isMobile ? "body2" : "body1"}>kWh</Typography>
-                  }}
-                  size={isMobile ? "small" : "medium"}
-                  sx={{ mt: 1, mb: 2 }}
-                />
-                
-                {/* Save Notification Settings button */}
+                <Typography 
+                  variant={isMobile ? "h5" : "h4"} 
+                  color={colors.grey[100]} 
+                  fontWeight="bold"
+                >
+                  Percentage-based Pricing
+                </Typography>
                 <Button
                   variant="contained"
                   color="secondary"
-                  startIcon={<SaveIcon />}
-                  onClick={handleSaveNotifications}
-                  fullWidth
+                  startIcon={<AddIcon />}
+                  onClick={() => openPercentageModal()}
                   size={isMobile ? "small" : "medium"}
-                  sx={{ mt: { xs: 1, sm: 2 } }}
                 >
-                  Save Settings
+                  Add Type
                 </Button>
               </Box>
+              
+              <Divider sx={{ mb: 2, borderColor: colors.grey[700] }} />
+              
+              {percentagePrices.map((item) => (
+                <Box 
+                  key={item.id}
+                  display="grid" 
+                  gridTemplateColumns={{ 
+                    xs: "1fr", 
+                    sm: "2fr 2fr", 
+                    md: "2fr 2fr 2fr 1fr" 
+                  }}
+                  gap={{ xs: 1, sm: 2 }}
+                  alignItems="center"
+                  sx={{
+                    p: { xs: 1.5, sm: 2 }, 
+                    mb: { xs: 1, sm: 1.5 }, 
+                    borderRadius: 1,
+                    backgroundColor: colors.primary[400],
+                    border: `1px solid ${colors.grey[800]}`,
+                  }}
+                >
+                  <Typography 
+                    variant={isMobile ? "body1" : "h5"} 
+                    fontWeight="bold"
+                    sx={{ gridColumn: { sm: isMobile ? "span 1" : "span 2", md: "span 1" } }}
+                  >
+                    {item.name}
+                  </Typography>
+                  
+                  <Box 
+                    display="flex" 
+                    alignItems="center"
+                    sx={{ 
+                      mt: { xs: 0.5, sm: 0 },
+                      gridColumn: { xs: "span 1", sm: "span 1", md: "span 1" } 
+                    }}
+                  >
+                    <Typography variant={isMobile ? "body2" : "body1"} mr={1}>Percentage:</Typography>
+                    <Typography variant={isMobile ? "body2" : "body1"} fontWeight="medium">
+                      {item.percentage}%
+                    </Typography>
+                  </Box>
+                  
+                  <Box 
+                    display="flex" 
+                    alignItems="center"
+                    sx={{ 
+                      mt: { xs: 0.5, sm: 0 },
+                      gridColumn: { xs: "span 1", sm: "span 1", md: "span 1" } 
+                    }}
+                  >
+                    <Typography variant={isMobile ? "body2" : "body1"} mr={1}>Price:</Typography>
+                    <Typography 
+                      variant={isMobile ? "body2" : "body1"} 
+                      fontWeight="medium" 
+                      color={colors.greenAccent[400]}
+                    >
+                      {item.price.toLocaleString()} VND/kWh
+                    </Typography>
+                  </Box>
+                  
+                  <Box 
+                    display="flex" 
+                    justifyContent={{ xs: "flex-start", md: "flex-end" }}
+                    sx={{ 
+                      mt: { xs: 1, sm: 0 },
+                      gridColumn: { 
+                        xs: "span 1", 
+                        sm: isMobile ? "span 2" : "span 1", 
+                        md: "span 1" 
+                      } 
+                    }}
+                  >
+                    <IconButton 
+                      onClick={() => openPercentageModal(item)} 
+                      sx={{ 
+                        color: colors.blueAccent[400],
+                        padding: isMobile ? 0.5 : 1
+                      }}
+                      size={isMobile ? "small" : "medium"}
+                    >
+                      <EditIcon fontSize={isMobile ? "small" : "medium"} />
+                    </IconButton>
+                    <IconButton 
+                      onClick={() => handleDeletePercentage(item.id)} 
+                      sx={{ 
+                        color: colors.redAccent[400],
+                        padding: isMobile ? 0.5 : 1
+                      }}
+                      size={isMobile ? "small" : "medium"}
+                    >
+                      <DeleteIcon fontSize={isMobile ? "small" : "medium"} />
+                    </IconButton>
+                  </Box>
+                </Box>
+              ))}
             </CardContent>
           </Card>
         </Box>
@@ -485,7 +731,6 @@ const ConfigBill = () => {
               onChange={handleTierInputChange}
               fullWidth
               margin="normal"
-              inputProps={{ inputMode: 'numeric', pattern: '[0-9]*' }}
               size={isMobile ? "small" : "medium"}
             />
             <TextField
@@ -495,7 +740,6 @@ const ConfigBill = () => {
               onChange={handleTierInputChange}
               fullWidth
               margin="normal"
-              inputProps={{ inputMode: 'numeric', pattern: '[0-9]*' }}
               helperText="Leave empty for unlimited"
               size={isMobile ? "small" : "medium"}
             />
@@ -506,7 +750,6 @@ const ConfigBill = () => {
               onChange={handleTierInputChange}
               fullWidth
               margin="normal"
-              inputProps={{ inputMode: 'numeric', pattern: '[0-9]*' }}
               size={isMobile ? "small" : "medium"}
             />
           </Box>
@@ -522,6 +765,84 @@ const ConfigBill = () => {
             </Button>
             <Button 
               onClick={handleSaveTier}
+              variant="contained" 
+              color="secondary"
+              disabled={loading}
+              size={isMobile ? "small" : "medium"}
+            >
+              {loading ? "Saving..." : "Save"}
+            </Button>
+          </Box>
+        </Box>
+      </Modal>
+
+      {/* Percentage Price Modal */}
+      <Modal 
+        open={percentageModalOpen} 
+        onClose={() => setPercentageModalOpen(false)}
+        aria-labelledby="modal-percentage-title"
+        aria-describedby="modal-percentage-description"
+      >
+        <Box sx={modalStyle}>
+          {/* Modal header */}
+          <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
+            <Typography id="modal-percentage-title" variant="h4" component="h2">
+              {editingPercentage ? "Edit Percentage Price" : "Add New Percentage Price"}
+            </Typography>
+            <IconButton 
+              aria-label="close" 
+              onClick={() => setPercentageModalOpen(false)}
+              sx={{ color: colors.grey[300] }}
+            >
+              <CloseIcon />
+            </IconButton>
+          </Box>
+          
+          <Divider sx={{ mb: 2, borderColor: colors.grey[700] }} />
+          
+          {/* Modal content */}
+          <Box id="modal-percentage-description" sx={{ mt: 2 }}>
+            <TextField
+              label="Price Type Name"
+              name="name"
+              value={newPercentage.name}
+              onChange={handlePercentageInputChange}
+              fullWidth
+              margin="normal"
+              size={isMobile ? "small" : "medium"}
+              sx={{ mt: { xs: 1, sm: 2 } }}
+            />
+            <TextField
+              label="Percentage (%)"
+              name="percentage"
+              value={newPercentage.percentage}
+              onChange={handlePercentageInputChange}
+              fullWidth
+              margin="normal"
+              size={isMobile ? "small" : "medium"}
+            />
+            <TextField
+              label="Price (VND/kWh)"
+              name="price"
+              value={newPercentage.price}
+              onChange={handlePercentageInputChange}
+              fullWidth
+              margin="normal"
+              size={isMobile ? "small" : "medium"}
+            />
+          </Box>
+          
+          {/* Modal actions */}
+          <Box sx={{ mt: 3, display: 'flex', justifyContent: 'flex-end', gap: 1 }}>
+            <Button 
+              onClick={() => setPercentageModalOpen(false)} 
+              disabled={loading}
+              size={isMobile ? "small" : "medium"}
+            >
+              Cancel
+            </Button>
+            <Button 
+              onClick={handleSavePercentage}
               variant="contained" 
               color="secondary"
               disabled={loading}

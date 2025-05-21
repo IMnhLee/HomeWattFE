@@ -1,115 +1,161 @@
 import * as React from 'react';
-import Button from '@mui/material/Button';
-import Checkbox from '@mui/material/Checkbox';
-import FormControlLabel from '@mui/material/FormControlLabel';
-import Divider from '@mui/material/Divider';
-import FormLabel from '@mui/material/FormLabel';
-import FormControl from '@mui/material/FormControl';
-import Link from '@mui/material/Link';
-import TextField from '@mui/material/TextField';
-import Stack from '@mui/material/Stack';
-import Box from '@mui/material/Box';
-import Typography from '@mui/material/Typography';
+import {
+  Button,
+  Checkbox,
+  FormControlLabel,
+  Divider,
+  TextField,
+  Box,
+  Typography,
+  Container,
+  Paper,
+  Link as MuiLink,
+  InputAdornment,
+  IconButton,
+  Alert,
+  Snackbar,
+  CircularProgress
+} from '@mui/material';
 import { styled } from '@mui/material/styles';
 import { useTheme } from "@mui/material";
 import { tokens } from "../../theme";
-import axios from 'axios';
-import { useNavigate } from 'react-router-dom';
+import authApi from '../../services/auth';
+import { useNavigate, Link } from 'react-router-dom';
 import PersonAddIcon from '@mui/icons-material/PersonAdd';
 import LoginIcon from '@mui/icons-material/Login';
+import GoogleIcon from '@mui/icons-material/Google';
+import { Visibility, VisibilityOff, Person, Lock } from '@mui/icons-material';
 
-const SignInContainer = styled(Box)(({ theme }) => ({
-  display: 'flex',
-  flexDirection: 'column',
-  justifyContent: 'center',
-  alignItems: 'center',
-  minHeight: '100vh',
-  width: '100%',
-  padding: theme.spacing(2),
-  background: theme.palette.mode === 'light' 
-    ? 'radial-gradient(ellipse at 50% 50%, hsl(210, 100%, 97%), hsl(0, 0%, 100%))'
-    : 'radial-gradient(at 50% 50%, hsla(210, 100%, 16%, 0.5), hsl(220, 30%, 5%))',
-}));
-
-const FormCard = styled(Box)(({ theme }) => ({
-  display: 'flex',
-  flexDirection: 'column',
-  width: '100%',
-  maxWidth: '450px',
-  padding: theme.spacing(4),
-  gap: theme.spacing(2),
-  margin: 'auto',
-  borderRadius: theme.shape.borderRadius,
-  backgroundColor: theme.palette.background.paper,
-  boxShadow: 'rgba(0, 0, 0, 0.1) 0px 5px 15px 0px, rgba(0, 0, 0, 0.05) 0px 15px 35px -5px',
-}));
-
-const Login = ({ handleToggleSidebar, isLoggedIn }) => {
+const Login = ({ setIsLoggedIn }) => {
   const theme = useTheme();
   const colors = tokens(theme.palette.mode);
   const navigate = useNavigate();
 
-  const [emailError, setEmailError] = React.useState(false);
-  const [emailErrorMessage, setEmailErrorMessage] = React.useState('');
-  const [passwordError, setPasswordError] = React.useState(false);
-  const [passwordErrorMessage, setPasswordErrorMessage] = React.useState('');
+  // Form state
+  const [formValues, setFormValues] = React.useState({
+    username: "",
+    password: "",
+    rememberMe: false
+  });
+
+  // Error states
+  const [formErrors, setFormErrors] = React.useState({
+    username: "",
+    password: ""
+  });
+
+  // UI states
   const [isLoading, setIsLoading] = React.useState(false);
-  
-  const handleSubmit = async (event) => {
-    event.preventDefault();
+  const [showPassword, setShowPassword] = React.useState(false);
+  const [notification, setNotification] = React.useState({
+    open: false,
+    message: "",
+    type: "info" // 'success', 'error', 'info', 'warning'
+  });
+
+  // Handle form input changes
+  const handleChange = (e) => {
+    const { name, value, checked } = e.target;
+    setFormValues({
+      ...formValues,
+      [name]: name === 'rememberMe' ? checked : value,
+    });
     
-    if (!validateInputs()) {
+    // Clear error when typing
+    if (formErrors[name]) {
+      setFormErrors({
+        ...formErrors,
+        [name]: "",
+      });
+    }
+  };
+
+  // Close notification
+  const handleCloseNotification = () => {
+    setNotification({
+      ...notification,
+      open: false
+    });
+  };
+  
+  // Validate form
+  const validateForm = () => {
+    const errors = {};
+    let isValid = true;
+    
+    // Username validation
+    if (!formValues.username.trim()) {
+      errors.username = "Vui lòng nhập tên đăng nhập";
+      isValid = false;
+    }
+    
+    // Password validation
+    if (!formValues.password) {
+      errors.password = "Vui lòng nhập mật khẩu";
+      isValid = false;
+    } else if (formValues.password.length < 6) {
+      errors.password = "Mật khẩu phải có ít nhất 6 ký tự";
+      isValid = false;
+    }
+    
+    setFormErrors(errors);
+    return isValid;
+  };
+
+  // Handle form submission
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    
+    if (!validateForm()) {
       return;
     }
     
-    const data = new FormData(event.currentTarget);
     setIsLoading(true);
 
     try {
-      const response = await axios.post("http://localhost:5000/login", {
-        username: data.get('email'),
-        password: data.get('password')
-      }, {
-        headers: {
-          "Content-Type": "application/json"
-        }
+      const response = await authApi.login({
+        username: formValues.username,
+        password: formValues.password
       });
-  
-      localStorage.setItem("token", response.data.token);
+      
+      // Lưu tokens vào localStorage
+      localStorage.setItem("access_token", JSON.stringify(response.data.tokens.accessToken));
+      localStorage.setItem("refresh_token", JSON.stringify(response.data.tokens.refreshToken));
+      
+      // Lưu thông tin người dùng
+      localStorage.setItem("user", JSON.stringify(response.data.user));
       localStorage.setItem("logged", true);
-      window.location.reload();
+      
+      setIsLoggedIn(true);
+      
+      setNotification({
+        open: true,
+        message: "Đăng nhập thành công!",
+        type: "success"
+      });
+      
+      // Chuyển hướng sau khi đăng nhập thành công
+      navigate('/');
     } catch (error) {
-      console.error("Error:", error.response?.data?.message || "Login failed");
-      alert(error.response?.data?.message || "Login failed");
+      console.error("Login error:", error);
+      
+      setNotification({
+        open: true,
+        message: error.response?.data?.message || "Đăng nhập thất bại. Vui lòng thử lại.",
+        type: "error"
+      });
     } finally {
       setIsLoading(false);
     }
   };
-  
-  const validateInputs = () => {
-    const email = document.getElementById('email');
-    const password = document.getElementById('password');
 
-    let isValid = true;
-
-    if (!email.value) {
-      setEmailError(true);
-      setEmailErrorMessage('Vui lòng nhập tên đăng nhập');
-      isValid = false;
-    } else {
-      setEmailError(false);
-      setEmailErrorMessage('');
-    }
-
-    if (!password.value || password.value.length < 6) {
-      setPasswordError(true);
-      setPasswordErrorMessage('Mật khẩu phải có ít nhất 6 ký tự');
-      isValid = false;
-    } else {
-      setPasswordError(false);
-      setPasswordErrorMessage('');
-    }
-    return isValid;
+  const handleGoogleLogin = () => {
+    // Implement Google login integration
+    setNotification({
+      open: true,
+      message: "Tính năng đăng nhập bằng Google đang được phát triển.",
+      type: "info"
+    });
   };
 
   const handleNavigateToSignup = () => {
@@ -117,123 +163,275 @@ const Login = ({ handleToggleSidebar, isLoggedIn }) => {
   };
 
   return (
-    <SignInContainer>
-      <FormCard>
-        <Box sx={{ 
-          display: 'flex', 
-          flexDirection: 'column', 
-          alignItems: 'center', 
-          mb: 2
-        }}>
-          <Typography
-            component="h1"
-            variant="h3"
-            color={colors.blueAccent[500]}
-            fontWeight="bold"
-            textAlign="center"
-            gutterBottom
-          >
-            HomeWatt
-          </Typography>
-          <Typography
-            variant="h4"
-            sx={{ fontSize: 'clamp(1.5rem, 5vw, 2rem)' }}
-          >
-            Đăng nhập
-          </Typography>
-        </Box>
-        
-        <Box
-          component="form"
-          onSubmit={handleSubmit}
-          noValidate
+    <Box
+      sx={{
+        display: "flex",
+        minHeight: "100vh",
+        alignItems: "center",
+        backgroundColor: colors.primary[500],
+      }}
+    >
+      <Container maxWidth="sm">
+        <Paper
+          elevation={3}
           sx={{
-            display: 'flex',
-            flexDirection: 'column',
-            width: '100%',
-            gap: 2,
+            padding: { xs: "20px", sm: "40px" },
+            backgroundColor: colors.primary[400],
+            borderRadius: "8px",
           }}
         >
-          <FormControl>
-            <FormLabel htmlFor="email">Tên đăng nhập</FormLabel>
-            <TextField
-              error={emailError}
-              helperText={emailErrorMessage}
-              id="email"
-              type="text"
-              name="email"
-              placeholder="Nhập tên đăng nhập"
-              autoComplete="email"
-              autoFocus
-              required
-              fullWidth
-              variant="outlined"
-              color={emailError ? 'error' : 'primary'}
-            />
-          </FormControl>
-          
-          <FormControl>
-            <FormLabel htmlFor="password">Mật khẩu</FormLabel>
-            <TextField
-              error={passwordError}
-              helperText={passwordErrorMessage}
-              name="password"
-              placeholder="••••••"
-              type="password"
-              id="password"
-              autoComplete="current-password"
-              required
-              fullWidth
-              variant="outlined"
-              color={passwordError ? 'error' : 'primary'}
-            />
-          </FormControl>
-          
-          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <FormControlLabel
-              control={<Checkbox value="remember" color="primary" />}
-              label="Ghi nhớ đăng nhập"
-            />
-            <Link href="#" variant="body2" color="primary">
-              Quên mật khẩu?
-            </Link>
+          <Box sx={{ 
+            display: 'flex', 
+            flexDirection: 'column', 
+            alignItems: 'center', 
+            mb: 4
+          }}>
+            <Typography
+              component="h1"
+              variant="h2"
+              color={colors.blueAccent[500]}
+              fontWeight="bold"
+              textAlign="center"
+              gutterBottom
+            >
+              HomeWatt
+            </Typography>
+            <Typography
+              variant="h3"
+              color={colors.grey[100]}
+              textAlign="center"
+            >
+              Đăng nhập
+            </Typography>
           </Box>
           
-          <Button
-            type="submit"
-            fullWidth
-            variant="contained"
-            disabled={isLoading}
-            startIcon={<LoginIcon />}
+          <form onSubmit={handleSubmit}>
+            {/* Username field */}
+            <TextField
+              fullWidth
+              variant="filled"
+              label="Tên đăng nhập"
+              name="username"
+              value={formValues.username}
+              onChange={handleChange}
+              error={!!formErrors.username}
+              helperText={formErrors.username}
+              disabled={isLoading}
+              sx={{ mb: 3 }}
+              InputProps={{
+                startAdornment: (
+                  <InputAdornment position="start">
+                    <Person sx={{ color: colors.grey[300] }} />
+                  </InputAdornment>
+                ),
+                sx: { color: colors.grey[100] }
+              }}
+              InputLabelProps={{
+                sx: { color: colors.grey[300] }
+              }}
+            />
+            
+            {/* Password field */}
+            <TextField
+              fullWidth
+              variant="filled"
+              label="Mật khẩu"
+              name="password"
+              type={showPassword ? "text" : "password"}
+              value={formValues.password}
+              onChange={handleChange}
+              error={!!formErrors.password}
+              helperText={formErrors.password}
+              disabled={isLoading}
+              sx={{ mb: 2 }}
+              InputProps={{
+                startAdornment: (
+                  <InputAdornment position="start">
+                    <Lock sx={{ color: colors.grey[300] }} />
+                  </InputAdornment>
+                ),
+                endAdornment: (
+                  <InputAdornment position="end">
+                    <IconButton
+                      onClick={() => setShowPassword(!showPassword)}
+                      edge="end"
+                      disabled={isLoading}
+                      sx={{ color: colors.grey[300] }}
+                    >
+                      {showPassword ? <VisibilityOff /> : <Visibility />}
+                    </IconButton>
+                  </InputAdornment>
+                ),
+                sx: { color: colors.grey[100] }
+              }}
+              InputLabelProps={{
+                sx: { color: colors.grey[300] }
+              }}
+            />
+            
+            <Box sx={{ 
+              display: 'flex', 
+              justifyContent: 'space-between', 
+              alignItems: 'center',
+              mb: 3
+            }}>
+              <FormControlLabel
+                control={
+                  <Checkbox 
+                    checked={formValues.rememberMe}
+                    onChange={handleChange}
+                    name="rememberMe"
+                    sx={{
+                      color: colors.grey[300],
+                      '&.Mui-checked': {
+                        color: colors.blueAccent[500],
+                      },
+                    }}
+                  />
+                }
+                label={
+                  <Typography 
+                    variant="body2" 
+                    color={colors.grey[300]}
+                  >
+                    Ghi nhớ đăng nhập
+                  </Typography>
+                }
+              />
+              <MuiLink 
+                href="/forgot-password" 
+                variant="body2" 
+                sx={{
+                  color: colors.blueAccent[500],
+                  textDecoration: 'none',
+                  '&:hover': {
+                    textDecoration: 'underline',
+                  },
+                }}
+              >
+                Quên mật khẩu?
+              </MuiLink>
+            </Box>
+            
+            {/* Login button */}
+            <Button
+              type="submit"
+              variant="contained"
+              fullWidth
+              disabled={isLoading}
+              startIcon={isLoading ? null : <LoginIcon />}
+              sx={{ 
+                mb: 2,
+                py: 1.5,
+                fontSize: "16px",
+                fontWeight: "bold",
+                backgroundColor: colors.blueAccent[500],
+                color: '#fff',
+                '&:hover': {
+                  backgroundColor: colors.blueAccent[600],
+                },
+                '&:disabled': {
+                  backgroundColor: theme.palette.mode === 'light'
+                    ? colors.grey[400]
+                    : colors.grey[700],
+                  color: theme.palette.mode === 'light'
+                    ? colors.grey[100]
+                    : colors.grey[300],
+                }
+              }}
+            >
+              {isLoading ? (
+                <CircularProgress size={24} color="inherit" />
+              ) : (
+                "Đăng nhập"
+              )}
+            </Button>
+            
+            {/* Google login button */}
+            <Button
+              fullWidth
+              variant="contained"
+              startIcon={<GoogleIcon />}
+              onClick={handleGoogleLogin}
+              disabled={isLoading}
+              sx={{ 
+                mb: 3,
+                py: 1.5,
+                backgroundColor: "#ffffff",
+                color: "#757575",
+                fontSize: "16px",
+                fontWeight: "bold",
+                '&:hover': {
+                  backgroundColor: "#f1f1f1",
+                },
+                '&:disabled': {
+                  backgroundColor: "#e0e0e0",
+                  color: "#9e9e9e",
+                }
+              }}
+            >
+              Đăng nhập bằng Google
+            </Button>
+          </form>
+          
+          <Divider 
             sx={{ 
-              mt: 1, 
-              py: 1.5,
-              fontSize: '1rem',
-              fontWeight: 'bold'
+              my: 2,
+              '&::before, &::after': {
+                borderColor: theme.palette.mode === 'light'
+                  ? colors.grey[400]
+                  : colors.grey[700],
+              }
             }}
           >
-            {isLoading ? "Đang xử lý..." : "Đăng nhập"}
+            <Typography 
+              variant="body2" 
+              color={colors.grey[300]}
+            >
+              HOẶC
+            </Typography>
+          </Divider>
+          
+          {/* Sign up button */}
+          <Button
+            fullWidth
+            variant="outlined"
+            startIcon={<PersonAddIcon />}
+            onClick={handleNavigateToSignup}
+            sx={{ 
+              py: 1.2,
+              color: colors.greenAccent[700],
+              borderColor: colors.greenAccent[700],
+              '&:hover': {
+                borderColor: colors.greenAccent[600],
+                backgroundColor: theme.palette.mode === 'light'
+                  ? 'rgba(0, 128, 128, 0.08)'
+                  : 'rgba(0, 128, 128, 0.08)',
+              }
+            }}
+          >
+            Đăng ký tài khoản mới
           </Button>
-        </Box>
-        
-        <Divider sx={{ my: 2 }}>
-          <Typography variant="body2" color="text.secondary">
-            HOẶC
-          </Typography>
-        </Divider>
-        
-        <Button
-          fullWidth
-          variant="outlined"
-          color="secondary"
-          startIcon={<PersonAddIcon />}
-          onClick={handleNavigateToSignup}
-          sx={{ py: 1.2 }}
+        </Paper>
+      </Container>
+      
+      {/* Notifications */}
+      <Snackbar 
+        open={notification.open} 
+        autoHideDuration={6000} 
+        onClose={handleCloseNotification}
+        anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
+      >
+        <Alert 
+          onClose={handleCloseNotification} 
+          severity={notification.type} 
+          sx={{ width: '100%' }}
+          variant="filled"
         >
-          Đăng ký tài khoản mới
-        </Button>
-      </FormCard>
-    </SignInContainer>
+          {notification.message}
+        </Alert>
+      </Snackbar>
+    </Box>
   );
 };
 

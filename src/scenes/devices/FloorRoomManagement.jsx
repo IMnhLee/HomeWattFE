@@ -1,67 +1,72 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
-  Box, Button, IconButton, Typography, useTheme, TextField, Dialog,
-  DialogActions, DialogContent, DialogTitle, Card, CardContent, Divider,
-  List, ListItem, ListItemText, Menu, MenuItem, Chip
+  Box, Button, IconButton, Typography, useTheme, TextField, Modal,
+  Card, CardContent, Divider, List, ListItem, ListItemText, Menu, MenuItem, Chip
 } from "@mui/material";
 import { tokens } from "../../theme";
+import Header from "../../components/Header";
 import AddIcon from "@mui/icons-material/Add";
 import EditIcon from "@mui/icons-material/Edit";
 import DeleteIcon from "@mui/icons-material/Delete";
 import MoreVertIcon from "@mui/icons-material/MoreVert";
+import floorApi from "../../services/floor";
 
 const FloorRoomManagement = () => {
   const theme = useTheme();
   const colors = tokens(theme.palette.mode);
   
-  // Sample data - would come from API in real application
-  const [floors, setFloors] = useState([
-    { 
-      id: 1, 
-      name: "Ground Floor", 
-      rooms: [
-        { 
-          id: 1, 
-          name: "Living Room", 
-          devices: [
-            { id: 1, name: "TV", monitoringCode: "MT001dfbafchsjchvjdsbcjdscbdsjch", line: "Line 1" }, 
-            { id: 2, name: "Air Conditioner", monitoringCode: "MT002", line: "Line 2" }
-          ]
-        },
-        { 
-          id: 2, 
-          name: "Kitchen", 
-          devices: [
-            { id: 3, name: "Refrigerator", monitoringCode: "MT003", line: "Line 3" }, 
-            { id: 4, name: "Microwave", monitoringCode: "", line: "" }
-          ]
-        },
-      ]
-    },
-    { 
-      id: 2, 
-      name: "First Floor", 
-      rooms: [
-        { 
-          id: 3, 
-          name: "Bedroom", 
-          devices: [
-            { id: 5, name: "Lamp", monitoringCode: "MT001", line: "Line 2" }
-          ]
-        },
-        { 
-          id: 4, 
-          name: "Bathroom", 
-          devices: [
-            { id: 6, name: "Heater", monitoringCode: "MT005", line: "Line 1" }
-          ]
-        },
-      ]
-    },
-  ]);
+  // Define modal style
+  const modalStyle = {
+    position: 'absolute',
+    top: '50%',
+    left: '50%',
+    transform: 'translate(-50%, -50%)',
+    width: 500,
+    bgcolor: colors.primary[400],
+    border: '2px solid ' + colors.primary[500],
+    boxShadow: 24,
+    borderRadius: 1,
+    p: 4,
+  };
+  
+  const [floors, setFloors] = useState([]);
+  const [loading, setLoading] = useState(true);
+  
+  // Fetch floors data
+  useEffect(() => {
+    const fetchFloors = async () => {
+      try {
+        const response = await floorApi.getAllFloor();
+        console.log("Floors data:", response.data);
+        // Transform API data to match component structure
+        const formattedFloors = response.data.map(floor => ({
+          id: floor.id,
+          name: floor.name,
+          rooms: floor.rooms?.map(room => ({
+            id: room.id,
+            name: room.name,
+            devices: room.lines?.map(line => ({
+              id: line.id,
+              name: line.name,
+              monitoringCode: line.monitoringCode,
+              line: line.code
+            })) || []
+          })) || []
+        }));
+        setFloors(formattedFloors);
+        setLoading(false);
+      } catch (error) {
+        console.error("Error fetching floors:", error);
+        setLoading(false);
+      }
+    };
 
-  // Dialog states
-  const [dialogState, setDialogState] = useState({
+    fetchFloors();
+    console.log("Floors data fetched:", floors);
+  }, []);
+
+  // Dialog states - renamed to modalState
+  const [modalState, setModalState] = useState({
     type: null, // 'floor' or 'room'
     open: false,
     isEditing: false,
@@ -77,9 +82,16 @@ const FloorRoomManagement = () => {
     item: null
   });
 
-  // Dialog helpers
-  const openDialog = (type, item = null, parent = null) => {
-    setDialogState({
+  // Add this new state for delete confirmation
+  const [confirmDelete, setConfirmDelete] = useState({
+    open: false,
+    type: null, // 'floor' or 'room'
+    item: null
+  });
+
+  // Modal helpers
+  const openModal = (type, item = null, parent = null) => {
+    setModalState({
       type,
       open: true,
       isEditing: !!item,
@@ -89,12 +101,12 @@ const FloorRoomManagement = () => {
     });
   };
 
-  const closeDialog = () => {
-    setDialogState(prev => ({ ...prev, open: false }));
+  const closeModal = () => {
+    setModalState(prev => ({ ...prev, open: false }));
   };
 
   const handleNameChange = (e) => {
-    setDialogState(prev => ({ ...prev, name: e.target.value }));
+    setModalState(prev => ({ ...prev, name: e.target.value }));
   };
 
   // Menu helpers
@@ -115,69 +127,132 @@ const FloorRoomManagement = () => {
   };
   
   // CRUD operations
-  const handleSaveItem = () => {
-    const { type, isEditing, itemData, parentData, name } = dialogState;
+  const handleSaveItem = async () => {
+    const { type, isEditing, itemData, parentData, name } = modalState;
     
-    if (type === 'floor') {
-      if (isEditing) {
-        // Edit existing floor
-        setFloors(floors.map(floor => 
-          floor.id === itemData.id ? { ...floor, name } : floor
-        ));
-      } else {
-        // Add new floor
-        const newId = Math.max(0, ...floors.map(f => f.id)) + 1;
-        setFloors([...floors, { id: newId, name, rooms: [] }]);
+    try {
+      if (type === 'floor') {
+        if (isEditing) {
+          // Edit existing floor using API
+          const response = await floorApi.updateFloor(itemData.id, name);
+          if (response.message) {
+            // Success - update local state
+            setFloors(floors.map(floor => 
+              floor.id === itemData.id ? { ...floor, name } : floor
+            ));
+          }
+        } else {
+          // Add new floor using API
+          const response = await floorApi.addFloor({ name });
+          if (response.data) {
+            // Add new floor to state with data from API response
+            const newFloor = {
+              id: response.data.id,
+              name: response.data.name,
+              rooms: []
+            };
+            setFloors([...floors, newFloor]);
+          }
+        }
+      } else if (type === 'room') {
+        if (isEditing) {
+          // Edit existing room using API
+          const response = await floorApi.editRoom(itemData.id, name);
+          if (response.message) {
+            // Success - update local state
+            setFloors(floors.map(floor => 
+              floor.id === parentData.id 
+                ? { 
+                    ...floor, 
+                    rooms: floor.rooms.map(room => 
+                      room.id === itemData.id ? { ...room, name } : room
+                    ) 
+                  } 
+                : floor
+            ));
+          }
+        } else {
+          // Add new room using API
+          const response = await floorApi.addRoomToFloor(parentData.id, name);
+          if (response.data) {
+            // Add new room to state with data from API response
+            const newRoom = {
+              id: response.data.id,
+              name: response.data.name,
+              devices: []
+            };
+            
+            setFloors(floors.map(floor => 
+              floor.id === parentData.id 
+                ? { 
+                    ...floor, 
+                    rooms: [...floor.rooms, newRoom]
+                  } 
+                : floor
+            ));
+          }
+        }
       }
-    } else if (type === 'room') {
-      if (isEditing) {
-        // Edit existing room
-        setFloors(floors.map(floor => 
-          floor.id === parentData.id 
-            ? { 
-                ...floor, 
-                rooms: floor.rooms.map(room => 
-                  room.id === itemData.id ? { ...room, name } : room
-                ) 
-              } 
-            : floor
-        ));
-      } else {
-        // Add new room
-        const roomIds = floors.flatMap(f => f.rooms.map(r => r.id));
-        const newId = Math.max(0, ...roomIds) + 1;
-        
-        setFloors(floors.map(floor => 
-          floor.id === parentData.id 
-            ? { 
-                ...floor, 
-                rooms: [...floor.rooms, { id: newId, name, devices: [] }]
-              } 
-            : floor
-        ));
-      }
+      
+      closeModal();
+    } catch (error) {
+      console.error("Error saving item:", error);
+      // You could add error handling UI here
     }
-    
-    closeDialog();
   };
   
-  const handleDeleteItem = () => {
-    const { type, item } = menuState;
+  // Add these helper functions for confirmation dialog
+  const openDeleteConfirmation = (type, item) => {
+    setConfirmDelete({
+      open: true,
+      type,
+      item
+    });
+    closeMenu(); // Close the menu when opening confirmation
+  };
+
+  const closeDeleteConfirmation = () => {
+    setConfirmDelete({
+      open: false,
+      type: null,
+      item: null
+    });
+  };
+
+  // Modified version of handleDeleteItem
+  const confirmDeleteItem = async () => {
+    const { type, item } = confirmDelete;
     
-    if (type === 'floor') {
-      setFloors(floors.filter(floor => floor.id !== item.id));
-    } else if (type === 'room') {
-      setFloors(floors.map(floor => 
-        floor.id === item.floor.id 
-          ? { 
-              ...floor, 
-              rooms: floor.rooms.filter(room => room.id !== item.room.id)
-            } 
-          : floor
-      ));
+    try {
+      if (type === 'floor') {
+        // Delete floor using API
+        const response = await floorApi.deleteFloor(item.id);
+        if (response.message) {
+          // Remove floor from local state after successful API deletion
+          setFloors(floors.filter(floor => floor.id !== item.id));
+        }
+      } else if (type === 'room') {
+        // Delete room using API
+        const response = await floorApi.deleteRoom(item.room.id);
+        if (response.message) {
+          // Success - update local state
+          setFloors(floors.map(floor => 
+            floor.id === item.floor.id 
+              ? { 
+                  ...floor, 
+                  rooms: floor.rooms.filter(room => room.id !== item.room.id)
+                } 
+              : floor
+          ));
+        }
+      }
+      
+      closeDeleteConfirmation();
+    } catch (error) {
+      console.error("Error deleting item:", error);
+      closeDeleteConfirmation();
+      // You could add error handling UI here
     }
-    
-    closeMenu();
   };
   
   const handleRemoveDevice = (floorId, roomId, deviceId) => {
@@ -308,7 +383,7 @@ const FloorRoomManagement = () => {
               color="secondary"
               startIcon={<AddIcon />}
               size="medium"
-              onClick={() => openDialog('room', null, floor)}
+              onClick={() => openModal('room', null, floor)}
               sx={{ fontSize: '1rem' }}
             >
               Add Room
@@ -343,15 +418,17 @@ const FloorRoomManagement = () => {
 
   return (
     <Box m="20px">
-      <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
-        <Typography variant="h3" color={colors.grey[100]} fontWeight="bold">
-          Floors & Rooms
-        </Typography>
+      <Header 
+        title="Floors & Rooms" 
+        subtitle="Manage your home layout and connected devices" 
+      />
+      
+      <Box display="flex" justifyContent="flex-end" mb={3}>
         <Button
           variant="contained"
           color="secondary"
           startIcon={<AddIcon />}
-          onClick={() => openDialog('floor')}
+          onClick={() => openModal('floor')}
           size="large"
           sx={{ fontSize: '1.1rem', py: 1 }}
         >
@@ -359,10 +436,21 @@ const FloorRoomManagement = () => {
         </Button>
       </Box>
       
-      {/* Floor List */}
-      <Box display="grid" gap={3} sx={{ gridTemplateColumns: "1fr" }}>
-        {floors.map(renderFloor)}
-      </Box>
+      {/* Loading state */}
+      {loading ? (
+        <Typography variant="h5" textAlign="center" my={4}>
+          Loading floors and rooms...
+        </Typography>
+      ) : floors.length === 0 ? (
+        <Typography variant="h5" textAlign="center" my={4}>
+          No floors found. Add your first floor to get started.
+        </Typography>
+      ) : (
+        /* Floor List */
+        <Box display="grid" gap={3} sx={{ gridTemplateColumns: "1fr" }}>
+          {floors.map(renderFloor)}
+        </Box>
+      )}
       
       {/* Context Menu */}
       <Menu
@@ -375,9 +463,9 @@ const FloorRoomManagement = () => {
           onClick={() => {
             closeMenu();
             if (menuState.type === 'floor') {
-              openDialog('floor', menuState.item);
+              openModal('floor', menuState.item);
             } else if (menuState.type === 'room') {
-              openDialog('room', menuState.item.room, menuState.item.floor);
+              openModal('room', menuState.item.room, menuState.item.floor);
             }
           }}
           sx={{ fontSize: '1.1rem', py: 1.5 }}
@@ -385,48 +473,99 @@ const FloorRoomManagement = () => {
           <EditIcon fontSize="medium" sx={{ mr: 1 }} /> Edit
         </MenuItem>
         <MenuItem 
-          onClick={handleDeleteItem}
+          onClick={() => openDeleteConfirmation(menuState.type, menuState.item)}
           sx={{ fontSize: '1.1rem', py: 1.5 }}
         >
           <DeleteIcon fontSize="medium" sx={{ mr: 1 }} /> Delete
         </MenuItem>
       </Menu>
       
-      {/* Generic Dialog */}
-      <Dialog 
-        open={dialogState.open} 
-        onClose={closeDialog}
-        PaperProps={{ style: { padding: '10px' } }}
+      {/* Modal */}
+      <Modal
+        open={modalState.open}
+        onClose={closeModal}
+        aria-labelledby="modal-title"
       >
-        <DialogTitle sx={{ fontSize: '1.5rem' }}>
-          {dialogState.isEditing ? `Edit ${dialogState.type === 'floor' ? 'Floor' : 'Room'}` : `Add New ${dialogState.type === 'floor' ? 'Floor' : 'Room'}`}
-        </DialogTitle>
-        <DialogContent>
+        <Box sx={modalStyle}>
+          <Typography id="modal-title" variant="h4" sx={{ mb: 3, fontSize: "22px" }}>
+            {modalState.isEditing 
+              ? `Edit ${modalState.type === 'floor' ? 'Floor' : 'Room'}` 
+              : `Add New ${modalState.type === 'floor' ? 'Floor' : 'Room'}`}
+          </Typography>
+          
           <TextField
             autoFocus
             margin="normal"
-            label={`${dialogState.type === 'floor' ? 'Floor' : 'Room'} Name`}
+            label={`${modalState.type === 'floor' ? 'Floor' : 'Room'} Name`}
             fullWidth
             variant="outlined"
-            value={dialogState.name}
+            value={modalState.name}
             onChange={handleNameChange}
-            {...textFieldStyle}
+            sx={{
+              "& .MuiOutlinedInput-root": {
+                fontSize: "16px",
+              },
+              "& .MuiInputLabel-root.Mui-focused": { color: colors.primary[100] },
+            }}
           />
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={closeDialog} sx={{ fontSize: '1.1rem' }}>
-            Cancel
-          </Button>
-          <Button 
-            onClick={handleSaveItem} 
-            color="secondary"
-            disabled={!dialogState.name.trim()}
-            sx={{ fontSize: '1.1rem' }}
-          >
-            Save
-          </Button>
-        </DialogActions>
-      </Dialog>
+          
+          {/* Action buttons */}
+          <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: 3, gap: 1 }}>
+            <Button 
+              onClick={closeModal} 
+              sx={{ fontSize: "16px", color: colors.primary[100] }}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleSaveItem}
+              color="secondary"
+              variant="contained"
+              disabled={!modalState.name.trim()}
+              sx={{ fontSize: "16px" }}
+            >
+              Save
+            </Button>
+          </Box>
+        </Box>
+      </Modal>
+      
+      {/* Delete Confirmation Modal */}
+      <Modal
+        open={confirmDelete.open}
+        onClose={closeDeleteConfirmation}
+        aria-labelledby="delete-confirm-title"
+      >
+        <Box sx={modalStyle}>
+          <Typography id="delete-confirm-title" variant="h4" sx={{ mb: 3, fontSize: "22px" }}>
+            Confirm Deletion
+          </Typography>
+          
+          <Typography variant="body1" sx={{ mb: 3, fontSize: "16px" }}>
+            {confirmDelete.type === 'floor' 
+              ? `Are you sure you want to delete floor "${confirmDelete.item?.name}"? This will also delete all rooms within this floor.`
+              : `Are you sure you want to delete room "${confirmDelete.item?.room?.name}"?`}
+          </Typography>
+          
+          {/* Action buttons */}
+          <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: 3, gap: 1 }}>
+            <Button 
+              onClick={closeDeleteConfirmation} 
+              sx={{ fontSize: "16px", color: colors.primary[100] }}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={confirmDeleteItem}
+              color="error"
+              variant="contained"
+              sx={{ fontSize: "16px" }}
+            >
+              Delete
+            </Button>
+          </Box>
+        </Box>
+      </Modal>
     </Box>
   );
 };

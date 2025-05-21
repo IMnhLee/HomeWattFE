@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useEffect } from "react";
 import {
   Box, 
   Button,
@@ -22,10 +22,8 @@ import {
   Collapse,
   TablePagination,
   Tooltip,
-  List,
-  Card,
-  CardContent,
-  FormHelperText
+  FormHelperText,
+  CircularProgress
 } from "@mui/material";
 import { tokens } from "../../theme";
 import Header from "../../components/Header";
@@ -36,7 +34,9 @@ import KeyboardArrowDownIcon from "@mui/icons-material/KeyboardArrowDown";
 import KeyboardArrowUpIcon from "@mui/icons-material/KeyboardArrowUp";
 import LinkIcon from "@mui/icons-material/Link";
 import LinkOffIcon from "@mui/icons-material/LinkOff";
-import DeviceHubIcon from "@mui/icons-material/DeviceHub";
+import monitoringApi from "../../services/monitoring";
+import floorApi from "../../services/floor";
+import lineApi from "../../services/line"; // Add this import
 
 const MeasurementDevices = () => {
   const theme = useTheme();
@@ -56,71 +56,50 @@ const MeasurementDevices = () => {
     p: 4,
   };
 
-  // Enhanced energy-consuming devices with room and floor info
-  const [energyDevices, setEnergyDevices] = useState([
-    { id: 1, name: "TV", room: "", floor: "Tầng 1" },
-    { id: 2, name: "Air Conditioner", room: "Bedroom", floor: "1st Floor" },
-    { id: 3, name: "Refrigerator", room: "Kitchen", floor: "1st Floor" },
-    { id: 4, name: "Microwave", room: "Kitchen", floor: "1st Floor" },
-    { id: 5, name: "Lamp", room: "Study", floor: "2nd Floor" },
-    { id: 6, name: "Computer", room: "Study", floor: "2nd Floor" },
-    { id: 7, name: "Washing Machine", room: "Laundry", floor: "Ground Floor" },
-    { id: 8, name: "Dryer", room: "Laundry", floor: "Ground Floor" },
-    { id: 9, name: "Water Heater", room: "Bathroom", floor: "1st Floor" }
-  ]);
+  // State for API data
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+  const [measurementDevices, setMeasurementDevices] = useState([]);
+  const [totalCount, setTotalCount] = useState(0);
+  const [totalPages, setTotalPages] = useState(0);
   
-  // Sample measurement devices with lines
-  const [measurementDevices, setMeasurementDevices] = useState([
-    { 
-      id: 1, 
-      name: "Main Power Meter", 
-      code: "MPM001", // Added code field
-      location: "Garage",
-      status: "active",
-      lines: [
-        { id: 1, name: "Line 1", connectedDeviceId: 1, status: "connected" },
-        { id: 2, name: "Line 2", connectedDeviceId: 2, status: "connected" },
-        { id: 3, name: "Line 3", connectedDeviceId: null, status: "disconnected" }
-      ]
-    },
-    { 
-      id: 2, 
-      name: "Kitchen Power Monitor", 
-      code: "KPM002", // Added code field
-      location: "Kitchen",
-      status: "active",
-      lines: [
-        { id: 4, name: "Line 1", connectedDeviceId: 3, status: "connected" },
-        { id: 5, name: "Line 2", connectedDeviceId: 4, status: "connected" }
-      ]
-    },
-    { 
-      id: 3, 
-      name: "Smart Power Monitor", 
-      code: "SPM003", // Added code field
-      location: "Living Room",
-      status: "inactive",
-      lines: [
-        { id: 6, name: "Line 1", connectedDeviceId: 5, status: "connected" },
-        { id: 7, name: "Line 2", connectedDeviceId: null, status: "disconnected" }
-      ]
+  // Update state definition (remove initial values)
+  const [availableFloors, setAvailableFloors] = useState([]);
+  const [availableRooms, setAvailableRooms] = useState([]);
+  
+  // Fetch floors and rooms data from API
+  const fetchFloorsAndRooms = async () => {
+    try {
+      const response = await floorApi.getAllFloor();
+      
+      if (response && response.data) {
+        // Extract floor names
+        const floors = response.data
+          .filter(floor => floor.name) // Only include floors with names
+          .map(floor => floor.name);
+        
+        // Extract rooms with their floor relationships
+        const rooms = [];
+        response.data.forEach(floor => {
+          if (floor.rooms && floor.name) {
+            floor.rooms.forEach(room => {
+              rooms.push({
+                id: room.id,
+                name: room.name,
+                floor: floor.name
+              });
+            });
+          }
+        });
+        
+        setAvailableFloors(floors);
+        setAvailableRooms(rooms);
+      }
+    } catch (err) {
+      console.error("Error fetching floors and rooms:", err);
+      setError("Failed to load floors and rooms data. Please try again.");
     }
-  ]);
-
-  // Available floors and rooms
-  const [availableFloors, setAvailableFloors] = useState([
-    "Tầng 1", "Tầng 2", "Tầng 3", "Ground Floor", "1st Floor", "2nd Floor"
-  ]);
-  
-  // Sample rooms data
-  const [availableRooms, setAvailableRooms] = useState([
-    { id: 1, name: "Living Room", floor: "Tầng 1" },
-    { id: 2, name: "Kitchen", floor: "Tầng 1" },
-    { id: 3, name: "Bedroom", floor: "1st Floor" },
-    { id: 4, name: "Study", floor: "2nd Floor" },
-    { id: 5, name: "Bathroom", floor: "1st Floor" },
-    { id: 6, name: "Laundry", floor: "Ground Floor" }
-  ]);
+  };
   
   // Get rooms for selected floor
   const getRoomsForFloor = (floorName) => {
@@ -132,19 +111,15 @@ const MeasurementDevices = () => {
     name: "",
     code: "",
     location: "",
-    status: "active"
+    active: true
   });
 
   const [newLine, setNewLine] = useState({
-    name: "",
-    status: "disconnected"
-  });
-  
-  // New device for connection
-  const [newConnectDevice, setNewConnectDevice] = useState({
+    code: "",
     name: "",
     floor: "",
-    room: ""
+    room: "",
+    active: true
   });
   
   // UI state
@@ -155,13 +130,37 @@ const MeasurementDevices = () => {
   // Dialog states
   const [deviceDialogOpen, setDeviceDialogOpen] = useState(false);
   const [lineDialogOpen, setLineDialogOpen] = useState(false);
-  const [connectDeviceDialogOpen, setConnectDeviceDialogOpen] = useState(false);
   const [confirmDialogOpen, setConfirmDialogOpen] = useState(false);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   
   const [editingDevice, setEditingDevice] = useState(null);
   const [selectedDevice, setSelectedDevice] = useState(null);
-  const [selectedLine, setSelectedLine] = useState(null);
+  const [editingLine, setEditingLine] = useState(null);
   const [disconnectInfo, setDisconnectInfo] = useState({ deviceId: null, lineId: null });
+  const [deleteDeviceId, setDeleteDeviceId] = useState(null);
+
+  // Fetch data from API
+  const fetchDevices = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const response = await monitoringApi.getAllMonitoring(page + 1, rowsPerPage);
+      setMeasurementDevices(response.data.data);
+      setTotalCount(response.data.meta.totalCount);
+      setTotalPages(response.data.meta.totalPages);
+    } catch (err) {
+      console.error("Error fetching devices:", err);
+      setError("Failed to load devices. Please try again.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Initial data fetch and when pagination changes
+  useEffect(() => {
+    fetchDevices();
+    fetchFloorsAndRooms(); // Add this call to load floors and rooms
+  }, [page, rowsPerPage]);
 
   const handleExpandDevice = (deviceId) => {
     setExpandedDevice(expandedDevice === deviceId ? null : deviceId);
@@ -184,8 +183,8 @@ const MeasurementDevices = () => {
       setNewDevice({
         name: device.name,
         code: device.code,
-        location: device.location,
-        status: device.status
+        location: device.location || "",
+        active: device.active
       });
     } else {
       setEditingDevice(null);
@@ -193,7 +192,7 @@ const MeasurementDevices = () => {
         name: "",
         code: "",
         location: "",
-        status: "active"
+        active: true
       });
     }
     setDeviceDialogOpen(true);
@@ -202,208 +201,197 @@ const MeasurementDevices = () => {
   // Handle device form input
   const handleDeviceInputChange = (e) => {
     const { name, value } = e.target;
-    setNewDevice({
-      ...newDevice,
-      [name]: value
-    });
+    if (name === "active") {
+      setNewDevice({
+        ...newDevice,
+        active: value === "true"
+      });
+    } else {
+      setNewDevice({
+        ...newDevice,
+        [name]: value
+      });
+    }
   };
   
   // Save device
-  const handleSaveDevice = () => {
-    if (editingDevice) {
-      // Update existing device
-      setMeasurementDevices(measurementDevices.map(device => 
-        device.id === editingDevice.id 
-          ? { ...device, ...newDevice }
-          : device
-      ));
-    } else {
-      // Add new device
-      const newId = Math.max(0, ...measurementDevices.map(d => d.id)) + 1;
-      setMeasurementDevices([
-        ...measurementDevices,
-        {
-          id: newId,
-          ...newDevice,
-          lines: []
-        }
-      ]);
+  const handleSaveDevice = async () => {
+    try {
+      setLoading(true);
+      if (editingDevice) {
+        // Update existing device
+        await monitoringApi.updateMonitoring({
+          id: editingDevice.id,
+          ...newDevice
+        });
+      } else {
+        // Add new device
+        await monitoringApi.addMonitoring(newDevice);
+      }
+      // Refresh device list
+      fetchDevices();
+      setDeviceDialogOpen(false);
+    } catch (err) {
+      console.error("Error saving device:", err);
+      setError("Failed to save device. Please try again.");
+    } finally {
+      setLoading(false);
     }
-    setDeviceDialogOpen(false);
   };
   
   // Delete device
   const handleDeleteDevice = (deviceId) => {
-    setMeasurementDevices(measurementDevices.filter(device => device.id !== deviceId));
+    setDeleteDeviceId(deviceId);
+    setDeleteDialogOpen(true);
   };
   
-  // Open line dialog
-  const openLineDialog = (device) => {
+  const confirmDeleteDevice = async () => {
+    try {
+      setLoading(true);
+      await monitoringApi.removeMonitoring(deleteDeviceId);
+      // Refresh device list
+      await fetchDevices();
+      setDeleteDialogOpen(false);
+    } catch (err) {
+      console.error("Error deleting device:", err);
+      setError("Failed to delete device. Please try again.");
+    } finally {
+      setLoading(false);
+    }
+  };
+  
+  // Open line dialog for editing
+  const openLineDialog = (device, line) => {
     setSelectedDevice(device);
+    setEditingLine(line);
+    
+    // Determine floor and room from line.room if it exists
+    let floorName = "";
+    let roomName = "";
+    let roomId = "";
+    
+    if (line.room) {
+      roomName = line.room.name;
+      roomId = line.room.id;
+      if (line.room.floor) {
+        floorName = line.room.floor.name;
+      }
+    }
+    
     setNewLine({
-      name: "",
-      status: "disconnected"
+      code: line.code,
+      name: line.name || "",
+      floor: floorName,
+      room: roomName,
+      roomId: roomId,
+      active: line.active
     });
+    
     setLineDialogOpen(true);
   };
   
   // Handle line form input
   const handleLineInputChange = (e) => {
     const { name, value } = e.target;
-    setNewLine({
-      ...newLine,
-      [name]: value
-    });
-  };
-  
-  // Add new line to device
-  const handleAddLine = () => {
-    if (selectedDevice) {
-      const newLineId = Math.max(0, ...measurementDevices.flatMap(d => d.lines.map(l => l.id))) + 1;
+    if (name === "active") {
+      setNewLine({
+        ...newLine,
+        active: value === "true"
+      });
+    } else {
+      setNewLine({
+        ...newLine,
+        [name]: value
+      });
       
-      setMeasurementDevices(measurementDevices.map(device => 
-        device.id === selectedDevice.id
-          ? { 
-              ...device, 
-              lines: [
-                ...device.lines, 
-                { 
-                  id: newLineId, 
-                  name: newLine.name, 
-                  status: newLine.status,
-                  connectedDeviceId: null
-                }
-              ] 
-            }
-          : device
-      ));
-    }
-    setLineDialogOpen(false);
-  };
-  
-  // Open connect device dialog
-  const openConnectDeviceDialog = (device, line) => {
-    setSelectedDevice(device);
-    setSelectedLine(line);
-    setNewConnectDevice({
-      name: "",
-      floor: "",
-      room: ""
-    });
-    setConnectDeviceDialogOpen(true);
-  };
-  
-  // Handle new connect device form input
-  const handleConnectDeviceInputChange = (e) => {
-    const { name, value } = e.target;
-    setNewConnectDevice({
-      ...newConnectDevice,
-      [name]: value
-    });
-    
-    // Reset room when floor changes
-    if (name === 'floor') {
-      setNewConnectDevice(prev => ({
-        ...prev,
-        room: ''
-      }));
+      // Reset room when floor changes
+      if (name === 'floor') {
+        setNewLine(prev => ({
+          ...prev,
+          room: ''
+        }));
+      }
     }
   };
   
-  // Create and connect a new device
-  const handleCreateAndConnectDevice = () => {
-    if (selectedDevice && selectedLine && newConnectDevice.name) {
-      // Create a new energy device
-      const newDeviceId = Math.max(0, ...energyDevices.map(d => d.id)) + 1;
-      const createdDevice = {
-        id: newDeviceId,
-        name: newConnectDevice.name,
-        room: newConnectDevice.room || "",
-        floor: newConnectDevice.floor || ""
-      };
-      
-      // Add to energy devices
-      setEnergyDevices([...energyDevices, createdDevice]);
-      
-      // Connect to the line
-      setMeasurementDevices(measurementDevices.map(device => 
-        device.id === selectedDevice.id
-          ? { 
-              ...device, 
-              lines: device.lines.map(line => 
-                line.id === selectedLine.id
-                  ? { 
-                      ...line, 
-                      connectedDeviceId: newDeviceId,
-                      status: "connected"
-                    }
-                  : line
-              )
-            }
-          : device
-      ));
-      
-      setConnectDeviceDialogOpen(false);
+  // Update line
+  const handleSaveLine = async () => {
+    if (selectedDevice && editingLine) {
+      try {
+        setLoading(true);
+        
+        // Find the room ID based on room name and floor
+        let roomId = null;
+        if (newLine.room && newLine.floor) {
+          const matchedRoom = availableRooms.find(
+            room => room.name === newLine.room && room.floor === newLine.floor
+          );
+          if (matchedRoom) {
+            roomId = matchedRoom.id;
+          }
+        }
+        
+        // Prepare line data with the required API structure
+        const lineData = {
+          monitoringId: selectedDevice.id,
+          lineId: editingLine.id,
+          name: newLine.name,
+          roomId: roomId
+        };
+        
+        // Call the line API to update the line
+        await lineApi.editLine(lineData);
+        
+        // Refresh devices list
+        await fetchDevices();
+        setLineDialogOpen(false);
+      } catch (err) {
+        console.error("Error updating line:", err);
+        setError("Failed to update line. Please try again.");
+      } finally {
+        setLoading(false);
+      }
     }
   };
   
-  // Open modal Disconnect device from line
+  // Disconnect line (clear device info)
   const handleDisconnectLine = (deviceId, lineId) => {
     setDisconnectInfo({ deviceId, lineId });
     setConfirmDialogOpen(true);
   };
 
-  const confirmDisconnect = () => {
+  const confirmDisconnect = async () => {
     const { deviceId, lineId } = disconnectInfo;
-    
-    setMeasurementDevices(measurementDevices.map(device => 
-      device.id === deviceId
-        ? { 
-            ...device, 
-            lines: device.lines.map(line => 
-              line.id === lineId
-                ? { 
-                    ...line, 
-                    connectedDeviceId: null,
-                    status: "disconnected"
-                  }
-                : line
-            )
-          }
-        : device
-    ));
-    
-    setConfirmDialogOpen(false);
-  };
-  
-  // Get device name by ID - include room and floor in display
-  const getDeviceName = (deviceId) => {
-    const device = energyDevices.find(d => d.id === deviceId);
-    if (!device) return "Unknown";
-    
-    // Only add location info if room or floor exists
-    if (device.room || device.floor) {
-      const locationInfo = [
-        device.room && device.room.trim(),
-        device.floor && device.floor.trim()
-      ].filter(Boolean).join(", ");
+    try {
+      setLoading(true);
       
-      return `${device.name} (${locationInfo})`;
+      // Llamar a la API con la estructura correcta para desconectar la línea
+      await lineApi.disconnectLine({ 
+        monitoringId: deviceId,
+        lineId: lineId 
+      });
+      
+      // Actualizar los datos
+      await fetchDevices();
+      setConfirmDialogOpen(false);
+    } catch (err) {
+      console.error("Error disconnecting line:", err);
+      setError("Failed to disconnect line. Please try again.");
+    } finally {
+      setLoading(false);
     }
-    
-    return device.name;
   };
-
-  // Filtered devices for pagination
-  const displayedDevices = measurementDevices.slice(
-    page * rowsPerPage,
-    page * rowsPerPage + rowsPerPage
-  );
 
   return (
     <Box m="20px">
       {/* Header component */}
       <Header title="Measurement Devices" subtitle="Managing power monitoring devices and connections" />
+      
+      {error && (
+        <Box sx={{ bgcolor: colors.redAccent[900], p: 2, mb: 2, borderRadius: 1 }}>
+          <Typography color="error">{error}</Typography>
+        </Box>
+      )}
       
       <Box display="flex" justifyContent="flex-end" mb={3}>
         <Button
@@ -411,7 +399,7 @@ const MeasurementDevices = () => {
           color="secondary"
           startIcon={<AddIcon />}
           onClick={() => openDeviceDialog()}
-          sx={{ fontSize: "14px", py: 1 }} // Increased button text size
+          sx={{ fontSize: "14px", py: 1 }}
         >
           Add Measurement Device
         </Button>
@@ -432,147 +420,137 @@ const MeasurementDevices = () => {
             </TableRow>
           </TableHead>
           <TableBody>
-            {displayedDevices.map((device) => (
-              <React.Fragment key={device.id}>
-                <TableRow hover>
-                  <TableCell>
-                    <IconButton
-                      size="medium"
-                      onClick={() => handleExpandDevice(device.id)}
-                    >
-                      {expandedDevice === device.id ? <KeyboardArrowUpIcon /> : <KeyboardArrowDownIcon />}
-                    </IconButton>
-                  </TableCell>
-                  <TableCell sx={{ fontSize: "16px" }}>{device.name}</TableCell>
-                  <TableCell sx={{ fontSize: "16px" }}>{device.code}</TableCell>
-                  <TableCell sx={{ fontSize: "16px" }}>{device.location}</TableCell>
-                  <TableCell>
-                    <Chip
-                      label={device.status} 
-                      color={device.status === "active" ? "success" : "default"} 
-                      sx={{ fontSize: "14px", height: "28px" }}
-                    />
-                  </TableCell>
-                  <TableCell align="center" sx={{ fontSize: "16px" }}>{device.lines.length}</TableCell>
-                  <TableCell align="center">
-                    <Box>
-                      <Tooltip title="Edit">
-                        <IconButton size="medium" onClick={() => openDeviceDialog(device)}>
-                          <EditIcon />
-                        </IconButton>
-                      </Tooltip>
-                      {/* <Tooltip title="Add Line">
-                        <IconButton size="medium" color="primary" onClick={() => openLineDialog(device)}>
-                          <DeviceHubIcon />
-                        </IconButton>
-                      </Tooltip> */}
-                      <Tooltip title="Delete">
-                        <IconButton 
-                          size="medium" 
-                          color="error"
-                          onClick={() => handleDeleteDevice(device.id)}
-                        >
-                          <DeleteIcon />
-                        </IconButton>
-                      </Tooltip>
-                    </Box>
-                  </TableCell>
-                </TableRow>
-                
-                {/* Expanded lines section */}
-                <TableRow>
-                  <TableCell colSpan={6} style={{ padding: 0, borderBottom: 0 }}>
-                    <Collapse in={expandedDevice === device.id} timeout="auto" unmountOnExit>
-                      <Box sx={{ margin: 2 }}>
-                        <Typography variant="h5" gutterBottom>
-                          Lines
-                        </Typography>
-                        {device.lines.length === 0 ? (
-                          <Typography variant="body1" color={colors.grey[300]} sx={{ mb: 2, fontSize: "16px" }}>
-                            No lines available. Add a line to connect devices.
-                          </Typography>
-                        ) : (
-                          <Table size="medium">
-                            <TableHead>
-                              <TableRow>
-                                <TableCell sx={{ color: colors.grey[100], fontWeight: 'bold', fontSize: "16px" }}>Line Name</TableCell>
-                                <TableCell sx={{ color: colors.grey[100], fontWeight: 'bold', fontSize: "16px" }}>Status</TableCell>
-                                <TableCell sx={{ color: colors.grey[100], fontWeight: 'bold', fontSize: "16px" }}>Connected Device</TableCell>
-                                <TableCell sx={{ color: colors.grey[100], fontWeight: 'bold', fontSize: "16px" }} align="center">Actions</TableCell>
-                              </TableRow>
-                            </TableHead>
-                            <TableBody>
-                              {device.lines.map((line) => (
-                                <TableRow key={line.id}>
-                                  <TableCell sx={{ fontSize: "16px" }}>{line.name}</TableCell>
-                                  <TableCell>
-                                    <Chip 
-                                      label={line.status} 
-                                      color={line.status === "connected" ? "success" : "default"} 
-                                      icon={line.status === "connected" ? <LinkIcon />:<LinkOffIcon />}
-                                      sx={{ fontSize: "14px", height: "28px" }} // Increased chip text size
-                                    />
-                                  </TableCell>
-                                  <TableCell sx={{ fontSize: "16px" }}>
-                                    {line.connectedDeviceId ? getDeviceName(line.connectedDeviceId) : "Not connected"}
-                                  </TableCell>
-                                  <TableCell align="center">
-                                    <Box>
-                                      {line.status === "disconnected" ? (
-                                        <Tooltip title="Connect to Device">
-                                          <IconButton 
-                                            size="medium" 
-                                            color="success"
-                                            onClick={() => openConnectDeviceDialog(device, line)}
-                                          >
-                                            <LinkIcon />
-                                          </IconButton>
-                                        </Tooltip>
-                                      ) : (
-                                        <Tooltip title="Disconnect">
-                                          <IconButton 
-                                            size="medium" 
-                                            onClick={() => handleDisconnectLine(device.id, line.id)}
-                                          >
-                                            <LinkOffIcon />
-                                          </IconButton>
-                                        </Tooltip>
-                                      )}
-                                      {/* <Tooltip title="Delete Line">
-                                        <IconButton 
-                                          size="medium" 
-                                          color="error"
-                                          onClick={() => handleDeleteLine(device.id, line.id)}
-                                        >
-                                          <DeleteIcon />
-                                        </IconButton>
-                                      </Tooltip> */}
-                                    </Box>
-                                  </TableCell>
-                                </TableRow>
-                              ))}
-                            </TableBody>
-                          </Table>
-                        )}
-                        {/* <Button
-                          variant="outlined"
-                          size="medium" // Changed from small
-                          startIcon={<AddIcon />}
-                          onClick={() => openLineDialog(device)}
-                          sx={{ mt: 2, fontSize: "14px" }}
-                          color="secondary"
-                        >
-                          Add Line
-                        </Button> */}
-                      </Box>
-                    </Collapse>
-                  </TableCell>
-                </TableRow>
-              </React.Fragment>
-            ))}
-            {measurementDevices.length === 0 && (
+            {loading ? (
               <TableRow>
-                <TableCell colSpan={6} align="center" sx={{ fontSize: "16px" }}>
+                <TableCell colSpan={7} align="center" sx={{ py: 3 }}>
+                  <CircularProgress color="secondary" />
+                </TableCell>
+              </TableRow>
+            ) : measurementDevices.length > 0 ? (
+              measurementDevices.map((device) => (
+                <React.Fragment key={device.id}>
+                  <TableRow hover>
+                    <TableCell>
+                      <IconButton
+                        size="medium"
+                        onClick={() => handleExpandDevice(device.id)}
+                      >
+                        {expandedDevice === device.id ? <KeyboardArrowUpIcon /> : <KeyboardArrowDownIcon />}
+                      </IconButton>
+                    </TableCell>
+                    <TableCell sx={{ fontSize: "16px" }}>{device.name}</TableCell>
+                    <TableCell sx={{ fontSize: "16px" }}>{device.code}</TableCell>
+                    <TableCell sx={{ fontSize: "16px" }}>{device.location || "-"}</TableCell>
+                    <TableCell>
+                      <Chip
+                        label={device.active ? "Active" : "Inactive"} 
+                        color={device.active ? "success" : "default"} 
+                        sx={{ fontSize: "14px", height: "28px" }}
+                      />
+                    </TableCell>
+                    <TableCell align="center" sx={{ fontSize: "16px" }}>{device.lines?.length || 0}</TableCell>
+                    <TableCell align="center">
+                      <Box>
+                        <Tooltip title="Edit">
+                          <IconButton size="medium" onClick={() => openDeviceDialog(device)}>
+                            <EditIcon />
+                          </IconButton>
+                        </Tooltip>
+                        <Tooltip title="Delete">
+                          <IconButton 
+                            size="medium" 
+                            color="error"
+                            onClick={() => handleDeleteDevice(device.id)}
+                          >
+                            <DeleteIcon />
+                          </IconButton>
+                        </Tooltip>
+                      </Box>
+                    </TableCell>
+                  </TableRow>
+                  
+                  {/* Expanded lines section */}
+                  <TableRow>
+                    <TableCell colSpan={7} style={{ padding: 0, borderBottom: 0 }}>
+                      <Collapse in={expandedDevice === device.id} timeout="auto" unmountOnExit>
+                        <Box sx={{ margin: 2 }}>
+                          <Typography variant="h5" gutterBottom>
+                            Lines
+                          </Typography>
+                          {!device.lines || device.lines.length === 0 ? (
+                            <Typography variant="body1" color={colors.grey[300]} sx={{ mb: 2, fontSize: "16px" }}>
+                              No lines available for this device.
+                            </Typography>
+                          ) : (
+                            <Table size="medium">
+                              <TableHead>
+                                <TableRow>
+                                  <TableCell sx={{ color: colors.grey[100], fontWeight: 'bold', fontSize: "16px" }}>Line Code</TableCell>
+                                  <TableCell sx={{ color: colors.grey[100], fontWeight: 'bold', fontSize: "16px" }}>Status</TableCell>
+                                  <TableCell sx={{ color: colors.grey[100], fontWeight: 'bold', fontSize: "16px" }}>Name</TableCell>
+                                  <TableCell sx={{ color: colors.grey[100], fontWeight: 'bold', fontSize: "16px" }}>Room</TableCell>
+                                  <TableCell sx={{ color: colors.grey[100], fontWeight: 'bold', fontSize: "16px" }}>Floor</TableCell>
+                                  <TableCell sx={{ color: colors.grey[100], fontWeight: 'bold', fontSize: "16px" }} align="center">Actions</TableCell>
+                                </TableRow>
+                              </TableHead>
+                              <TableBody>
+                                {device.lines.map((line) => (
+                                  <TableRow key={line.id}>
+                                    <TableCell sx={{ fontSize: "16px" }}>{line.code}</TableCell>
+                                    <TableCell>
+                                      <Chip 
+                                        label={line.active ? "Active" : "Inactive"} 
+                                        color={line.active ? "success" : "default"} 
+                                        icon={line.active ? <LinkIcon /> : <LinkOffIcon />}
+                                        sx={{ fontSize: "14px", height: "28px" }}
+                                      />
+                                    </TableCell>
+                                    <TableCell sx={{ fontSize: "16px" }}>
+                                      {line.name || "Not set"}
+                                    </TableCell>
+                                    <TableCell sx={{ fontSize: "16px" }}>
+                                      {line.room?.name || "-"}
+                                    </TableCell>
+                                    <TableCell sx={{ fontSize: "16px" }}>
+                                      {line.room?.floor?.name || "-"}
+                                    </TableCell>
+                                    <TableCell align="center">
+                                      <Box>
+                                        <Tooltip title="Edit Line">
+                                          <IconButton 
+                                            size="medium" 
+                                            onClick={() => openLineDialog(device, line)}
+                                          >
+                                            <EditIcon />
+                                          </IconButton>
+                                        </Tooltip>
+                                        
+                                        {line.room && (
+                                          <Tooltip title="Disconnect">
+                                            <IconButton 
+                                              size="medium"
+                                              onClick={() => handleDisconnectLine(device.id, line.id)}
+                                            >
+                                              <LinkOffIcon />
+                                            </IconButton>
+                                          </Tooltip>
+                                        )}
+                                      </Box>
+                                    </TableCell>
+                                  </TableRow>
+                                ))}
+                              </TableBody>
+                            </Table>
+                          )}
+                        </Box>
+                      </Collapse>
+                    </TableCell>
+                  </TableRow>
+                </React.Fragment>
+              ))
+            ) : (
+              <TableRow>
+                <TableCell colSpan={7} align="center" sx={{ fontSize: "16px" }}>
                   No measurement devices found
                 </TableCell>
               </TableRow>
@@ -582,7 +560,7 @@ const MeasurementDevices = () => {
         <TablePagination
           rowsPerPageOptions={[5, 10, 25]}
           component="div"
-          count={measurementDevices.length}
+          count={totalCount}
           rowsPerPage={rowsPerPage}
           page={page}
           onPageChange={handleChangePage}
@@ -630,6 +608,7 @@ const MeasurementDevices = () => {
               required
               fullWidth
               label="Device Code"
+              disabled={editingDevice}
               name="code"
               value={newDevice.code}
               sx={{
@@ -643,7 +622,6 @@ const MeasurementDevices = () => {
             
             <TextField
               margin="normal"
-              required
               fullWidth
               label="Location"
               name="location"
@@ -656,34 +634,24 @@ const MeasurementDevices = () => {
               }}
               onChange={handleDeviceInputChange}
             />
-            
-            <FormControl fullWidth margin="normal">
-              <InputLabel id="device-status-label" sx={{ fontSize: "16px", "&.Mui-focused": {color: colors.primary[100]}}}>Status</InputLabel>
-              <Select
-                labelId="device-status-label"
-                name="status"
-                value={newDevice.status}
-                onChange={handleDeviceInputChange}
-                label="Status"
-                sx={{ fontSize: "16px" }}
-              >
-                <MenuItem value="active" sx={{ fontSize: "16px" }}>Active</MenuItem>
-                <MenuItem value="inactive" sx={{ fontSize: "16px" }}>Inactive</MenuItem>
-              </Select>
-            </FormControl>
           </Box>
           
           {/* Actions */}
           <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: 3, gap: 1 }}>
-            <Button onClick={() => setDeviceDialogOpen(false)} sx={{ fontSize: "16px", color: colors.primary[100] }}>Cancel</Button>
+            <Button 
+              onClick={() => setDeviceDialogOpen(false)} 
+              sx={{ fontSize: "16px", color: colors.primary[100] }}
+            >
+              Cancel
+            </Button>
             <Button 
               onClick={handleSaveDevice}
               color="secondary"
               variant="contained"
-              disabled={!newDevice.name || !newDevice.location || !newDevice.code}
+              disabled={loading || !newDevice.name || !newDevice.code}
               sx={{ fontSize: "16px" }}
             >
-              Save
+              {loading ? <CircularProgress size={24} color="inherit" /> : "Save"}
             </Button>
           </Box>
         </Box>
@@ -698,7 +666,7 @@ const MeasurementDevices = () => {
         <Box sx={modalStyle}>
           {/* Title */}
           <Typography id="line-modal-title" variant="h4" sx={{ mb: 3, fontSize: "22px" }}>
-            Add Line to {selectedDevice?.name}
+            Edit Line - {selectedDevice?.name}
           </Typography>
           
           {/* Content */}
@@ -706,6 +674,21 @@ const MeasurementDevices = () => {
             <TextField
               margin="normal"
               required
+              fullWidth
+              label="Line Code"
+              name="code"
+              value={newLine.code}
+              disabled={true}
+              sx={{
+                "& .MuiOutlinedInput-root": {
+                  fontSize: "16px",
+                },
+                "& .MuiInputLabel-root.Mui-focused": { color: colors.primary[100] },
+              }}
+            />
+            
+            <TextField
+              margin="normal"
               fullWidth
               label="Line Name"
               name="name"
@@ -717,57 +700,7 @@ const MeasurementDevices = () => {
                 },
                 "& .MuiInputLabel-root.Mui-focused": { color: colors.primary[100] },
               }}
-            />
-          </Box>
-          
-          {/* Actions */}
-          <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: 3, gap: 1 }}>
-            <Button onClick={() => setLineDialogOpen(false)} sx={{ fontSize: "16px", color: colors.primary[100] }}>Cancel</Button>
-            <Button 
-              onClick={handleAddLine}
-              color="secondary"
-              variant="contained"
-              disabled={!newLine.name}
-              sx={{ fontSize: "16px" }}
-            >
-              Add Line
-            </Button>
-          </Box>
-        </Box>
-      </Modal>
-      
-      {/* Connect Device Dialog */}
-      <Modal
-        open={connectDeviceDialogOpen}
-        onClose={() => setConnectDeviceDialogOpen(false)}
-        aria-labelledby="connect-device-modal-title"
-      >
-        <Box sx={modalStyle}>
-          {/* Title */}
-          <Typography id="connect-device-modal-title" variant="h4" sx={{ mb: 3, fontSize: "22px" }}>
-            Create and Connect Device
-          </Typography>
-          
-          <Typography variant="body1" gutterBottom sx={{ mb: 2 }}>
-            Connect new device to {selectedDevice?.name} - {selectedLine?.name}
-          </Typography>
-          
-          {/* Content */}
-          <Box component="form" sx={{ mt: 1 }}>
-            <TextField
-              margin="normal"
-              required
-              fullWidth
-              label="Device Name"
-              name="name"
-              value={newConnectDevice.name}
-              onChange={handleConnectDeviceInputChange}
-              sx={{
-                "& .MuiOutlinedInput-root": {
-                  fontSize: "16px",
-                },
-                "& .MuiInputLabel-root.Mui-focused": { color: colors.primary[100] },
-              }}
+              placeholder="Enter a name for this line"
             />
             
             {/* Floor dropdown */}
@@ -777,9 +710,9 @@ const MeasurementDevices = () => {
                 labelId="floor-select-label"
                 id="floor-select"
                 name="floor"
-                value={newConnectDevice.floor}
+                value={newLine.floor}
                 label="Floor"
-                onChange={handleConnectDeviceInputChange}
+                onChange={handleLineInputChange}
               >
                 <MenuItem value="">
                   <em>None</em>
@@ -792,25 +725,25 @@ const MeasurementDevices = () => {
             </FormControl>
             
             {/* Room dropdown (filtered by selected floor) */}
-            <FormControl fullWidth margin="normal" disabled={!newConnectDevice.floor}>
+            <FormControl fullWidth margin="normal" disabled={!newLine.floor}>
               <InputLabel id="room-select-label" sx={{ fontSize: "16px", "&.Mui-focused": {color: colors.primary[100]}}}>Room</InputLabel>
               <Select
                 labelId="room-select-label"
                 id="room-select"
                 name="room"
-                value={newConnectDevice.room}
+                value={newLine.room}
                 label="Room"
-                onChange={handleConnectDeviceInputChange}
+                onChange={handleLineInputChange}
               >
                 <MenuItem value="">
                   <em>None</em>
                 </MenuItem>
-                {getRoomsForFloor(newConnectDevice.floor).map((room) => (
+                {getRoomsForFloor(newLine.floor).map((room) => (
                   <MenuItem key={room.id} value={room.name}>{room.name}</MenuItem>
                 ))}
               </Select>
               <FormHelperText>
-                {newConnectDevice.floor 
+                {newLine.floor 
                   ? "Select a room or leave empty" 
                   : "Select a floor first"}
               </FormHelperText>
@@ -819,15 +752,15 @@ const MeasurementDevices = () => {
           
           {/* Actions */}
           <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: 3, gap: 1 }}>
-            <Button onClick={() => setConnectDeviceDialogOpen(false)} sx={{ fontSize: "16px", color: colors.primary[100] }}>Cancel</Button>
+            <Button onClick={() => setLineDialogOpen(false)} sx={{ fontSize: "16px", color: colors.primary[100] }}>Cancel</Button>
             <Button 
-              onClick={handleCreateAndConnectDevice}
+              onClick={handleSaveLine}
               color="secondary"
               variant="contained"
-              disabled={!newConnectDevice.name}
+              disabled={loading}
               sx={{ fontSize: "16px" }}
             >
-              Create and Connect
+              {loading ? <CircularProgress size={24} color="inherit" /> : "Update Line"}
             </Button>
           </Box>
         </Box>
@@ -837,14 +770,13 @@ const MeasurementDevices = () => {
       <Modal
         open={confirmDialogOpen}
         onClose={() => setConfirmDialogOpen(false)}
-        // aria-labelledby="disconnect-confirm-title"
       >
         <Box sx={modalStyle}>
-          <Typography id="disconnect-confirm-title" sx={{ mb: 2 }}>
+          <Typography id="disconnect-confirm-title" variant="h5" sx={{ mb: 2 }}>
             Confirm Disconnection
           </Typography>
           <Typography sx={{ mb: 3 }}>
-            Are you sure you want to disconnect this device from the line?
+            Are you sure you want to disconnect this line from its room?
           </Typography>
           <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 1 }}>
             <Button onClick={() => setConfirmDialogOpen(false)} sx={{ fontSize: "16px", color: colors.primary[100] }}>
@@ -853,9 +785,43 @@ const MeasurementDevices = () => {
             <Button
               onClick={confirmDisconnect}
               color="error"
+              variant="contained"
+              disabled={loading}
               sx={{ fontSize: "16px" }}
             >
-              Disconnect
+              {loading ? <CircularProgress size={24} color="inherit" /> : "Disconnect"}
+            </Button>
+          </Box>
+        </Box>
+      </Modal>
+
+      {/* Delete Confirmation Dialog */}
+      <Modal
+        open={deleteDialogOpen}
+        onClose={() => setDeleteDialogOpen(false)}
+      >
+        <Box sx={modalStyle}>
+          <Typography id="delete-confirm-title" variant="h5" sx={{ mb: 2 }}>
+            Confirm Deletion
+          </Typography>
+          <Typography sx={{ mb: 3 }}>
+            Are you sure you want to delete this measurement device? This action cannot be undone and will remove all associated line data.
+          </Typography>
+          <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 1 }}>
+            <Button 
+              onClick={() => setDeleteDialogOpen(false)} 
+              sx={{ fontSize: "16px", color: colors.primary[100] }}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={confirmDeleteDevice}
+              color="error"
+              variant="contained"
+              disabled={loading}
+              sx={{ fontSize: "16px" }}
+            >
+              {loading ? <CircularProgress size={24} color="inherit" /> : "Delete"}
             </Button>
           </Box>
         </Box>

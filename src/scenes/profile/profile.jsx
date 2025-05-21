@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import axios from "axios";
+import profileAPI from "../../services/profile";
 import {
   Box,
   Button,
@@ -13,16 +13,27 @@ import {
   IconButton,
   InputAdornment,
   Snackbar,
+  List,
+  ListItem,
+  ListItemText,
+  useMediaQuery,
 } from "@mui/material";
 import { tokens } from "../../theme";
 import Header from "../../components/Header";
-import { Visibility, VisibilityOff } from "@mui/icons-material";
-// import LoadingButton from "@mui/lab/LoadingButton";
+import { Visibility, VisibilityOff, Edit, Person, Email, Phone, Home } from "@mui/icons-material";
 
 const Profile = () => {
   const theme = useTheme();
   const colors = tokens(theme.palette.mode);
-  const API_BASE_URL = "REACT_APP_API_BASE_URL";
+  
+  // Thêm media queries cho responsive
+  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
+  const isTablet = useMediaQuery(theme.breakpoints.between('sm', 'md'));
+
+  // ... các state không thay đổi
+
+  // State lưu user ID
+  const [userId, setUserId] = useState(null);
 
   // State cho thông tin người dùng
   const [userInfo, setUserInfo] = useState({
@@ -38,6 +49,9 @@ const Profile = () => {
     newPassword: "",
     confirmPassword: "",
   });
+
+  // State edit mode
+  const [editMode, setEditMode] = useState(false);
 
   // State hiện/ẩn mật khẩu
   const [showPassword, setShowPassword] = useState({
@@ -65,23 +79,33 @@ const Profile = () => {
     password: {},
   });
 
+  // Backup state for canceling edits
+  const [userInfoBackup, setUserInfoBackup] = useState({});
+
+  // Các hàm xử lý giữ nguyên như cũ
+  // ...
+
   // Lấy thông tin người dùng khi component mount
   useEffect(() => {
     const fetchUserData = async () => {
       try {
-        const token = localStorage.getItem("token");
-        if (!token) return;
-
-        const response = await axios.get(`${API_BASE_URL}/api/user/profile`, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-
-        setUserInfo({
-          username: response.data.username || "",
-          email: response.data.email || "",
-          phoneNumber: response.data.phoneNumber || "",
-          address: response.data.address || "",
-        });
+        // Lấy user ID từ localStorage
+        const user = localStorage.getItem("user");
+        const storedUserId = user ? JSON.parse(user).id : null;
+        console.log("storedUserId", storedUserId);
+        if (storedUserId) {
+          setUserId(storedUserId);
+          const response = await profileAPI.getUserInfo(storedUserId);
+          
+          if (response.data) {
+            setUserInfo({
+              username: response.data.username || "",
+              email: response.data.email || "",
+              phoneNumber: response.data.phoneNumber || "",
+              address: response.data.address || "",
+            });
+          }
+        }
       } catch (error) {
         console.error("Error fetching user data:", error);
         showNotification("Không thể tải thông tin người dùng", "error");
@@ -140,6 +164,20 @@ const Profile = () => {
     }));
   };
 
+  // Bắt đầu chế độ chỉnh sửa
+  const startEditMode = () => {
+    // Backup current data for cancel operation
+    setUserInfoBackup({...userInfo});
+    setEditMode(true);
+  };
+
+  // Hủy chỉnh sửa
+  const cancelEdit = () => {
+    setUserInfo(userInfoBackup);
+    setEditMode(false);
+    setErrors((prev) => ({...prev, profile: {}}));
+  };
+
   // Xác thực dữ liệu profile
   const validateProfileData = () => {
     const newErrors = {};
@@ -187,20 +225,28 @@ const Profile = () => {
     setLoading((prev) => ({ ...prev, profile: true }));
     
     try {
-      const token = localStorage.getItem("token");
-      await axios.put(
-        `${API_BASE_URL}/api/user/profile`, 
-        {
-          username: userInfo.username,
-          phoneNumber: userInfo.phoneNumber,
-          address: userInfo.address,
-        },
-        {
-          headers: { Authorization: `Bearer ${token}` },
-        }
-      );
+      if (!userId) {
+        throw new Error("Không tìm thấy ID người dùng");
+      }
       
-      showNotification("Cập nhật thông tin thành công");
+      const response = await profileAPI.updateUser(userId, {
+        username: userInfo.username,
+        phoneNumber: userInfo.phoneNumber,
+        address: userInfo.address,
+      });
+      
+      if (response.data) {
+        // Cập nhật state với dữ liệu trả về từ API
+        setUserInfo({
+          username: response.data.username || "",
+          email: response.data.email || "",
+          phoneNumber: response.data.phoneNumber || "",
+          address: response.data.address || "",
+        });
+        
+        setEditMode(false);
+        showNotification(response.message || "Cập nhật thông tin thành công");
+      }
     } catch (error) {
       console.error("Error updating profile:", error);
       showNotification(
@@ -221,17 +267,10 @@ const Profile = () => {
     setLoading((prev) => ({ ...prev, password: true }));
     
     try {
-      const token = localStorage.getItem("token");
-      await axios.post(
-        `${API_BASE_URL}/api/user/change-password`,
-        {
-          currentPassword: passwords.currentPassword,
-          newPassword: passwords.newPassword,
-        },
-        {
-          headers: { Authorization: `Bearer ${token}` },
-        }
-      );
+      const response = await profileAPI.updatePassword({
+        currentPassword: passwords.currentPassword,
+        newPassword: passwords.newPassword,
+      });
       
       setPasswords({
         currentPassword: "",
@@ -239,7 +278,7 @@ const Profile = () => {
         confirmPassword: "",
       });
       
-      showNotification("Thay đổi mật khẩu thành công");
+      showNotification(response.message || "Thay đổi mật khẩu thành công");
     } catch (error) {
       console.error("Error changing password:", error);
       showNotification(
@@ -252,17 +291,20 @@ const Profile = () => {
   };
 
   return (
-    <Box m="20px">
-      <Header title="HỒ SƠ" subtitle="Quản lý thông tin cá nhân của bạn" />
+    <Box m={isMobile ? "10px" : "20px"}>
+      <Header 
+        title="HỒ SƠ" 
+        subtitle="Quản lý thông tin cá nhân của bạn"
+      />
 
       <Box
         display="grid"
         gridTemplateColumns="repeat(12, 1fr)"
         gridAutoRows="auto"
-        gap="20px"
+        gap={isMobile ? "10px" : "20px"}
       >
         {/* Thông tin cá nhân */}
-        <Box gridColumn="span 6">
+        <Box gridColumn={isMobile ? "span 12" : "span 6"}>
           <Card
             sx={{
               backgroundColor: colors.primary[400],
@@ -271,82 +313,235 @@ const Profile = () => {
             }}
           >
             <CardContent>
-              <Typography variant="h3" mb="20px" color={colors.greenAccent[300]}>
-                Thông tin cá nhân
-              </Typography>
-              <Divider sx={{ mb: 2 }} />
-              
-              <Box component="form" onSubmit={handleUpdateProfile} noValidate>
-                <TextField
-                  fullWidth
-                  margin="normal"
-                  id="username"
-                  name="username"
-                  label="Tên người dùng"
-                  value={userInfo.username}
-                  onChange={handleProfileChange}
-                  error={Boolean(errors.profile.username)}
-                  helperText={errors.profile.username}
-                />
-                
-                <TextField
-                  fullWidth
-                  margin="normal"
-                  id="email"
-                  name="email"
-                  label="Email"
-                  type="email"
-                  value={userInfo.email}
-                  disabled
-                />
-                
-                <TextField
-                  fullWidth
-                  margin="normal"
-                  id="phoneNumber"
-                  name="phoneNumber"
-                  label="Số điện thoại"
-                  value={userInfo.phoneNumber}
-                  onChange={handleProfileChange}
-                  error={Boolean(errors.profile.phoneNumber)}
-                  helperText={errors.profile.phoneNumber}
-                />
-                
-                <TextField
-                  fullWidth
-                  margin="normal"
-                  id="address"
-                  name="address"
-                  label="Địa chỉ"
-                  value={userInfo.address}
-                  onChange={handleProfileChange}
-                  multiline
-                  rows={3}
-                />
-                
-                <Box mt={3}>
+              <Box 
+                display="flex" 
+                flexDirection={isMobile ? "column" : "row"}
+                justifyContent="space-between" 
+                alignItems={isMobile ? "flex-start" : "center"}
+                gap={isMobile ? 1 : 0}
+                mb="20px"
+              >
+                <Typography 
+                  variant={isMobile ? "h4" : "h3"} 
+                  color={colors.greenAccent[300]}
+                >
+                  Thông tin cá nhân
+                </Typography>
+                {!editMode && (
                   <Button
-                    type="submit"
-                    variant="contained"
-                    loading={loading.profile}
+                    variant="outlined"
+                    startIcon={<Edit />}
+                    onClick={startEditMode}
+                    size={isMobile ? "small" : "medium"}
                     sx={{
-                      backgroundColor: colors.greenAccent[700],
-                      color: colors.grey[900],
-                      "&:hover": {
-                        backgroundColor: colors.greenAccent[500],
-                      },
+                      borderColor: colors.greenAccent[400],
+                      color: colors.greenAccent[400],
+                      mt: isMobile ? 1 : 0
                     }}
                   >
-                    Cập nhật thông tin
+                    Chỉnh sửa
                   </Button>
-                </Box>
+                )}
               </Box>
+              
+              <Divider sx={{ mb: 2 }} />
+              
+              {editMode ? (
+                // Form chỉnh sửa
+                <Box component="form" onSubmit={handleUpdateProfile} noValidate>
+                  <TextField
+                    fullWidth
+                    margin="normal"
+                    id="username"
+                    name="username"
+                    label="Tên người dùng"
+                    value={userInfo.username}
+                    onChange={handleProfileChange}
+                    error={Boolean(errors.profile.username)}
+                    helperText={errors.profile.username}
+                    size={isMobile ? "small" : "medium"}
+                  />
+                  
+                  <TextField
+                    fullWidth
+                    margin="normal"
+                    id="email"
+                    name="email"
+                    label="Email"
+                    type="email"
+                    value={userInfo.email}
+                    disabled
+                    size={isMobile ? "small" : "medium"}
+                  />
+                  
+                  <TextField
+                    fullWidth
+                    margin="normal"
+                    id="phoneNumber"
+                    name="phoneNumber"
+                    label="Số điện thoại"
+                    value={userInfo.phoneNumber}
+                    onChange={handleProfileChange}
+                    error={Boolean(errors.profile.phoneNumber)}
+                    helperText={errors.profile.phoneNumber}
+                    size={isMobile ? "small" : "medium"}
+                  />
+                  
+                  <TextField
+                    fullWidth
+                    margin="normal"
+                    id="address"
+                    name="address"
+                    label="Địa chỉ"
+                    value={userInfo.address}
+                    onChange={handleProfileChange}
+                    multiline
+                    rows={isMobile ? 2 : 3}
+                    size={isMobile ? "small" : "medium"}
+                  />
+                  
+                  <Box 
+                    mt={3} 
+                    display="flex" 
+                    flexDirection={isMobile ? "column" : "row"}
+                    gap={2}
+                  >
+                    <Button
+                      type="submit"
+                      variant="contained"
+                      fullWidth={isMobile}
+                      disabled={loading.profile}
+                      size={isMobile ? "small" : "medium"}
+                      sx={{
+                        backgroundColor: colors.greenAccent[700],
+                        color: colors.grey[900],
+                        "&:hover": {
+                          backgroundColor: colors.greenAccent[500],
+                        },
+                      }}
+                    >
+                      {loading.profile ? "Đang lưu..." : "Lưu thay đổi"}
+                    </Button>
+                    
+                    <Button
+                      type="button"
+                      variant="outlined"
+                      onClick={cancelEdit}
+                      fullWidth={isMobile}
+                      disabled={loading.profile}
+                      size={isMobile ? "small" : "medium"}
+                      sx={{
+                        borderColor: colors.grey[500],
+                        color: colors.grey[300],
+                      }}
+                    >
+                      Hủy
+                    </Button>
+                  </Box>
+                </Box>
+              ) : (
+                // View chế độ xem
+                <List sx={{ width: '100%' }}>
+                  <ListItem
+                    sx={{
+                      borderRadius: 1,
+                      mb: 1,
+                      backgroundColor: colors.primary[400],
+                      flexDirection: isMobile ? "column" : "row",
+                      alignItems: isMobile ? "flex-start" : "center",
+                      p: isMobile ? 1 : 2,
+                    }}
+                  >
+                    <Box display="flex" alignItems="center" mb={isMobile ? 1 : 0}>
+                      <Person sx={{ mr: 2, color: colors.greenAccent[400] }} />
+                      <Typography variant="body2" color={colors.grey[400]}>Tên người dùng</Typography>
+                    </Box>
+                    <Typography 
+                      variant="h5" 
+                      ml={isMobile ? 4 : "auto"}
+                      fontSize={isMobile ? "16px" : "16px"}
+                    >
+                      {userInfo.username || "Chưa cập nhật"}
+                    </Typography>
+                  </ListItem>
+                  
+                  <ListItem
+                    sx={{
+                      borderRadius: 1,
+                      mb: 1,
+                      backgroundColor: colors.primary[400],
+                      flexDirection: isMobile ? "column" : "row",
+                      alignItems: isMobile ? "flex-start" : "center",
+                      p: isMobile ? 1 : 2,
+                    }}
+                  >
+                    <Box display="flex" alignItems="center" mb={isMobile ? 1 : 0}>
+                      <Email sx={{ mr: 2, color: colors.blueAccent[400] }} />
+                      <Typography variant="body2" color={colors.grey[400]}>Email</Typography>
+                    </Box>
+                    <Typography 
+                      variant="h5" 
+                      ml={isMobile ? 4 : "auto"}
+                      fontSize={isMobile ? "16px" : "16px"}
+                      sx={{ wordBreak: "break-word" }}
+                    >
+                      {userInfo.email || "Chưa cập nhật"}
+                    </Typography>
+                  </ListItem>
+                  
+                  <ListItem
+                    sx={{
+                      borderRadius: 1,
+                      mb: 1,
+                      backgroundColor: colors.primary[400],
+                      flexDirection: isMobile ? "column" : "row",
+                      alignItems: isMobile ? "flex-start" : "center",
+                      p: isMobile ? 1 : 2,
+                    }}
+                  >
+                    <Box display="flex" alignItems="center" mb={isMobile ? 1 : 0}>
+                      <Phone sx={{ mr: 2, color: colors.redAccent[400] }} />
+                      <Typography variant="body2" color={colors.grey[400]}>Số điện thoại</Typography>
+                    </Box>
+                    <Typography 
+                      variant="h5" 
+                      ml={isMobile ? 4 : "auto"}
+                      fontSize={isMobile ? "16px" : "16px"}
+                    >
+                      {userInfo.phoneNumber || "Chưa cập nhật"}
+                    </Typography>
+                  </ListItem>
+                  
+                  <ListItem
+                    sx={{
+                      borderRadius: 1,
+                      backgroundColor: colors.primary[400],
+                      flexDirection: isMobile ? "column" : "row",
+                      alignItems: isMobile ? "flex-start" : "center",
+                      p: isMobile ? 1 : 2,
+                    }}
+                  >
+                    <Box display="flex" alignItems="center" mb={isMobile ? 1 : 0}>
+                      <Home sx={{ mr: 2, color: colors.yellowAccent || "#FFD700" }} />
+                      <Typography variant="body2" color={colors.grey[400]}>Địa chỉ</Typography>
+                    </Box>
+                    <Typography 
+                      variant="h5" 
+                      ml={isMobile ? 4 : "auto"}
+                      fontSize={isMobile ? "16px" : "16px"}
+                      sx={{ wordBreak: "break-word" }}
+                    >
+                      {userInfo.address || "Chưa cập nhật"}
+                    </Typography>
+                  </ListItem>
+                </List>
+              )}
             </CardContent>
           </Card>
         </Box>
 
         {/* Thay đổi mật khẩu */}
-        <Box gridColumn="span 6">
+        <Box gridColumn={isMobile ? "span 12" : "span 6"}>
           <Card
             sx={{
               backgroundColor: colors.primary[400],
@@ -355,7 +550,11 @@ const Profile = () => {
             }}
           >
             <CardContent>
-              <Typography variant="h3" mb="20px" color={colors.greenAccent[300]}>
+              <Typography 
+                variant={isMobile ? "h4" : "h3"} 
+                mb="20px" 
+                color={colors.greenAccent[300]}
+              >
                 Thay đổi mật khẩu
               </Typography>
               <Divider sx={{ mb: 2 }} />
@@ -372,6 +571,7 @@ const Profile = () => {
                   onChange={handlePasswordChange}
                   error={Boolean(errors.password.currentPassword)}
                   helperText={errors.password.currentPassword}
+                  size={isMobile ? "small" : "medium"}
                   InputProps={{
                     endAdornment: (
                       <InputAdornment position="end">
@@ -383,6 +583,7 @@ const Profile = () => {
                             }))
                           }
                           edge="end"
+                          size={isMobile ? "small" : "medium"}
                         >
                           {showPassword.currentPassword ? (
                             <VisibilityOff />
@@ -406,6 +607,7 @@ const Profile = () => {
                   onChange={handlePasswordChange}
                   error={Boolean(errors.password.newPassword)}
                   helperText={errors.password.newPassword}
+                  size={isMobile ? "small" : "medium"}
                   InputProps={{
                     endAdornment: (
                       <InputAdornment position="end">
@@ -417,6 +619,7 @@ const Profile = () => {
                             }))
                           }
                           edge="end"
+                          size={isMobile ? "small" : "medium"}
                         >
                           {showPassword.newPassword ? (
                             <VisibilityOff />
@@ -440,6 +643,7 @@ const Profile = () => {
                   onChange={handlePasswordChange}
                   error={Boolean(errors.password.confirmPassword)}
                   helperText={errors.password.confirmPassword}
+                  size={isMobile ? "small" : "medium"}
                   InputProps={{
                     endAdornment: (
                       <InputAdornment position="end">
@@ -451,6 +655,7 @@ const Profile = () => {
                             }))
                           }
                           edge="end"
+                          size={isMobile ? "small" : "medium"}
                         >
                           {showPassword.confirmPassword ? (
                             <VisibilityOff />
@@ -467,7 +672,9 @@ const Profile = () => {
                   <Button
                     type="submit"
                     variant="contained"
-                    loading={loading.password}
+                    fullWidth={isMobile}
+                    disabled={loading.password}
+                    size={isMobile ? "small" : "medium"}
                     sx={{
                       backgroundColor: colors.blueAccent[400],
                       color: colors.grey[900],
@@ -476,7 +683,7 @@ const Profile = () => {
                       },
                     }}
                   >
-                    Đổi mật khẩu
+                    {loading.password ? "Đang xử lý..." : "Đổi mật khẩu"}
                   </Button>
                 </Box>
               </Box>
@@ -490,7 +697,10 @@ const Profile = () => {
         open={notification.open}
         autoHideDuration={5000}
         onClose={closeNotification}
-        anchorOrigin={{ vertical: "top", horizontal: "right" }}
+        anchorOrigin={{ 
+          vertical: isMobile ? "bottom" : "top", 
+          horizontal: isMobile ? "center" : "right" 
+        }}
       >
         <Alert 
           onClose={closeNotification} 

@@ -1,17 +1,19 @@
 import { useState, useEffect } from "react";
-
 import { ColorModeContext, useMode } from "./theme";
 import { Box, CssBaseline, ThemeProvider } from "@mui/material";
 import { Route, Routes } from "react-router-dom";
 import Topbar from "./scenes/global/Topbar";
 import Sidebar from "./scenes/global/Sidebar";
+import PrivateRoute from "./privateRoute";
 
 import Dashboard from "./scenes/dashboard";
-
+import Report from "./scenes/report";
 import Form from "./scenes/form";
-import FAQ from "./scenes/faq";
 import Login from "./scenes/login";
-import Signup from "./scenes/signup/signup"; // Import Signup component
+import Signup from "./scenes/signup/signup";
+import ForgotPassword from "./scenes/login/forgotPassword";
+import ResetPassword from "./scenes/login/resetPassword";
+
 import Appliances from "./scenes/appliances";
 import Setting from "./scenes/setting";
 import Emission from "./scenes/emission";
@@ -22,34 +24,45 @@ import ConfigBill from "./scenes/bill/configBill";
 import ConsumptionPage from "./scenes/consumptions";
 import Profile from "./scenes/profile/profile";
 import ManageUser from "./scenes/admin/manageUser";
-import Team from "./scenes/team";
 
 function App() {
-
-const [theme, colorMode] = useMode();
-const [isLoggedIn, setIsLoggedIn] = useState(false);
-const [toggled, setToggled] = useState(false); // State to control sidebar toggling
-const [broken, setBroken] = useState(false); // State to control sidebar broken state
-
-
-useEffect(() => {
-	const loggedStatus = localStorage.getItem("logged");
-	setIsLoggedIn(loggedStatus === "true");
-	}, []);
+  const [theme, colorMode] = useMode();
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [toggled, setToggled] = useState(false);
+  const [broken, setBroken] = useState(false);
+  const [userRole, setUserRole] = useState("user"); // Mặc định là user thông thường
 
   useEffect(() => {
-    const loggedStatus = localStorage.getItem("logged");
-    setIsLoggedIn(loggedStatus === "true");
+    // Kiểm tra đăng nhập từ localStorage
+    const accessToken = localStorage.getItem("access_token");
+    const userItem = localStorage.getItem("user");
+    
+    // Kiểm tra nếu có access_token và user
+    if (accessToken && userItem) {
+      setIsLoggedIn(true);
+      try {
+        const userData = JSON.parse(userItem);
+        setUserRole(userData.role || "user");
+      } catch (error) {
+        console.error("Error parsing user data:", error);
+      }
+    } else {
+      setIsLoggedIn(false);
+    }
   }, []);
 
+  // Kiểm tra xem user có quyền admin không
+  const isAdmin = userRole === "admin";
+
+  // Định nghĩa các roles cho route
   return (
     <ColorModeContext.Provider value={colorMode}>
       <ThemeProvider theme={theme}>
         <CssBaseline />
-        <div className='app'>
+        <div className="app">
           {isLoggedIn && (
             <Sidebar
-              nameUser={"Dũng"}
+              nameUser={localStorage.getItem("userName") || "User"}
               setBroken={setBroken}
               toggled={toggled}
               setToggled={setToggled}
@@ -58,49 +71,103 @@ useEffect(() => {
           <main className="content">
             <Box
               sx={{
-                height: "100vh", // Chiều cao bằng Sidebar
-                overflowY: "auto", // Cho phép cuộn nội dung trong Box
-                width: "100%", // Đảm bảo Box chiếm toàn bộ chiều rộng
+                height: "100vh",
+                overflowY: "auto",
+                width: "100%",
               }}
             >
-              {isLoggedIn ? (
-                <>
-                  <Topbar
-                    setToggled={setToggled}
-                    toggled={toggled}
-                    broken={broken}
-                    isLoggedIn={isLoggedIn}
-                  />
-                  <Routes>
-                    <Route path="/" element={<Dashboard />} />
-                    <Route path="/monitoring/app" element={<Appliances />} />
-                    <Route path ="/monitoring/emission" element={<Emission/>}/>
-                    <Route path ="/setting" element={<Setting/>}/>
-                    <Route path="/devices/list" element={<EnergyDeviceList/>}></Route>
-                    <Route path="/devices/room" element={<FloorRoomManagement/>}></Route>
-                    <Route path="/devices/measurement" element={<MeasurementDevices/>}></Route>
-                    <Route path="/bill/config" element={<ConfigBill/>}></Route>
-                    <Route path="/consumptions" element={<ConsumptionPage/>}></Route>
-                    <Route path="/form" element={<Form />} />
-                    <Route path="/faq" element={<FAQ />} />
-                    <Route path="/profile" element={<Profile />}></Route>
-                    <Route path="/team" element={<Team />}></Route>
-                    <Route path="/admin/users" element={<ManageUser />}></Route>
-                  </Routes>
-                </>
-              ) : (
-                // Auth routes when not logged in
-                <Routes>
-                  <Route path="/signup" element={<Signup />} />
-                  <Route path="*" element={<Login />} /> {/* Default to login for any other path */}
-                </Routes>
+              {isLoggedIn && (
+                <Topbar
+                  setToggled={setToggled}
+                  toggled={toggled}
+                  broken={broken}
+                  setIsLoggedIn={setIsLoggedIn}
+                />
               )}
+              
+              <Routes>
+                {/* Public routes */}
+                <Route path="/login" element={<Login setIsLoggedIn={setIsLoggedIn}/>} />
+                <Route path="/signup" element={<Signup setIsLoggedIn={setIsLoggedIn}/>} />
+                <Route path="/forgot-password" element={<ForgotPassword />} />
+                <Route path="/reset-password" element={<ResetPassword />} />
+
+                {/* Protected routes */}
+                <Route path="/" element={
+                  <PrivateRoute roles={["user"]}>
+                    <Dashboard />
+                  </PrivateRoute>
+                } />
+                <Route path="/report" element={
+                  <PrivateRoute roles={["user"]}>
+                    <Report />
+                  </PrivateRoute>
+                } />
+                <Route path="/monitoring/app" element={
+                  <PrivateRoute roles={["user"]}>
+                    <Appliances />
+                  </PrivateRoute>
+                } />
+                <Route path="/monitoring/emission" element={
+                  <PrivateRoute roles={["user"]}>
+                    <Emission />
+                  </PrivateRoute>
+                } />
+                <Route path="/setting" element={
+                  <PrivateRoute roles={["user"]}>
+                    <Setting />
+                  </PrivateRoute>
+                } />
+                <Route path="/devices/list" element={
+                  <PrivateRoute roles={["user"]}>
+                    <EnergyDeviceList />
+                  </PrivateRoute>
+                } />
+                <Route path="/devices/room" element={
+                  <PrivateRoute roles={["user"]}>
+                    <FloorRoomManagement />
+                  </PrivateRoute>
+                } />
+                <Route path="/devices/measurement" element={
+                  <PrivateRoute roles={["user"]}>
+                    <MeasurementDevices />
+                  </PrivateRoute>
+                } />
+                <Route path="/bill/config" element={
+                  <PrivateRoute roles={["user"]}>
+                    <ConfigBill />
+                  </PrivateRoute>
+                } />
+                <Route path="/consumptions" element={
+                  <PrivateRoute roles={["user"]}>
+                    <ConsumptionPage />
+                  </PrivateRoute>
+                } />
+                <Route path="/form" element={
+                  <PrivateRoute roles={["user"]}>
+                    <Form />
+                  </PrivateRoute>
+                } />
+                <Route path="/profile" element={
+                  <PrivateRoute roles={["user"]}>
+                    <Profile />
+                  </PrivateRoute>
+                } />
+                
+                {/* Admin only routes */}
+                <Route path="/admin/users" element={
+                  <PrivateRoute roles={["user"]}>
+                    <ManageUser />
+                  </PrivateRoute>
+                } />
+                
+              </Routes>
             </Box>
           </main>
-				</div>
-			</ThemeProvider>
-			
-		</ColorModeContext.Provider>
-	);
+        </div>
+      </ThemeProvider>
+    </ColorModeContext.Provider>
+  );
 }
+
 export default App;

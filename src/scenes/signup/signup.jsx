@@ -10,14 +10,19 @@ import {
   IconButton,
   Container,
   Link as MuiLink,
+  Alert,
+  Snackbar,
+  CircularProgress
 } from "@mui/material";
 import { Visibility, VisibilityOff, AccountCircle, Email, Lock } from "@mui/icons-material";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { tokens } from "../../theme";
+import authApi from "../../services/auth";
 
-const Signup = () => {
+const Signup = ({setIsLoggedIn}) => {
   const theme = useTheme();
   const colors = tokens(theme.palette.mode);
+  const navigate = useNavigate();
 
   // Form state
   const [formValues, setFormValues] = useState({
@@ -33,6 +38,14 @@ const Signup = () => {
     email: "",
     password: "",
     confirmPassword: "",
+  });
+
+  // Loading and notification states
+  const [isLoading, setIsLoading] = useState(false);
+  const [notification, setNotification] = useState({
+    open: false,
+    message: "",
+    type: "info" // 'success', 'error', 'info', 'warning'
   });
 
   // Password visibility state
@@ -54,6 +67,14 @@ const Signup = () => {
         [name]: "",
       });
     }
+  };
+
+  // Close notification
+  const handleCloseNotification = () => {
+    setNotification({
+      ...notification,
+      open: false
+    });
   };
 
   // Validate form
@@ -102,11 +123,49 @@ const Signup = () => {
   };
 
   // Handle form submission
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
+    
     if (validateForm()) {
-      console.log("Form submitted:", formValues);
-      // Add your registration logic here
+      setIsLoading(true);
+      
+      try {
+        const response = await authApi.register({
+          username: formValues.username,
+          email: formValues.email,
+          password: formValues.password
+        });
+
+        // Lưu tokens vào localStorage
+        localStorage.setItem("access_token", JSON.stringify(response.data.tokens.accessToken));
+        localStorage.setItem("refresh_token", JSON.stringify(response.data.tokens.refreshToken));
+        
+        // Lưu thông tin người dùng
+        localStorage.setItem("user", JSON.stringify(response.data.user));
+        localStorage.setItem("logged", true);
+        
+        console.log("Registration successful:", response);
+        
+        setNotification({
+          open: true,
+          message: "Registration successful! Redirecting to login...",
+          type: "success"
+        });
+        
+        setIsLoggedIn(true);
+        navigate("/");
+        
+      } catch (error) {
+        console.error("Registration error:", error);
+        
+        setNotification({
+          open: true,
+          message: error.response?.data?.message || "Registration failed. Please try again.",
+          type: "error"
+        });
+      } finally {
+        setIsLoading(false);
+      }
     }
   };
 
@@ -149,6 +208,7 @@ const Signup = () => {
               onChange={handleChange}
               error={!!formErrors.username}
               helperText={formErrors.username}
+              disabled={isLoading}
               sx={{ mb: 3 }}
               InputProps={{
                 startAdornment: (
@@ -174,6 +234,7 @@ const Signup = () => {
               onChange={handleChange}
               error={!!formErrors.email}
               helperText={formErrors.email}
+              disabled={isLoading}
               sx={{ mb: 3 }}
               InputProps={{
                 startAdornment: (
@@ -199,6 +260,7 @@ const Signup = () => {
               onChange={handleChange}
               error={!!formErrors.password}
               helperText={formErrors.password}
+              disabled={isLoading}
               sx={{ mb: 3 }}
               InputProps={{
                 startAdornment: (
@@ -211,6 +273,7 @@ const Signup = () => {
                     <IconButton
                       onClick={() => setShowPassword(!showPassword)}
                       edge="end"
+                      disabled={isLoading}
                       sx={{ color: colors.grey[300] }}
                     >
                       {showPassword ? <VisibilityOff /> : <Visibility />}
@@ -235,6 +298,7 @@ const Signup = () => {
               onChange={handleChange}
               error={!!formErrors.confirmPassword}
               helperText={formErrors.confirmPassword}
+              disabled={isLoading}
               sx={{ mb: 4 }}
               InputProps={{
                 startAdornment: (
@@ -247,6 +311,7 @@ const Signup = () => {
                     <IconButton
                       onClick={() => setShowConfirmPassword(!showConfirmPassword)}
                       edge="end"
+                      disabled={isLoading}
                       sx={{ color: colors.grey[300] }}
                     >
                       {showConfirmPassword ? <VisibilityOff /> : <Visibility />}
@@ -265,6 +330,7 @@ const Signup = () => {
               type="submit"
               variant="contained"
               fullWidth
+              disabled={isLoading}
               sx={{
                 backgroundColor: colors.greenAccent[700],
                 color: colors.primary[900],
@@ -277,7 +343,11 @@ const Signup = () => {
                 },
               }}
             >
-              Sign Up
+              {isLoading ? (
+                <CircularProgress size={24} color="inherit" />
+              ) : (
+                "Sign Up"
+              )}
             </Button>
           </form>
 
@@ -302,6 +372,23 @@ const Signup = () => {
           </Box>
         </Paper>
       </Container>
+      
+      {/* Notifications */}
+      <Snackbar 
+        open={notification.open} 
+        autoHideDuration={6000} 
+        onClose={handleCloseNotification}
+        anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
+      >
+        <Alert 
+          onClose={handleCloseNotification} 
+          severity={notification.type} 
+          sx={{ width: '100%' }}
+          variant="filled"
+        >
+          {notification.message}
+        </Alert>
+      </Snackbar>
     </Box>
   );
 };
