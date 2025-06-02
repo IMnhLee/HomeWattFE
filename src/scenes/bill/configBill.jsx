@@ -1,7 +1,8 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, forwardRef } from "react";
 import { Box, Button, TextField, Typography, useTheme, 
   Card, CardContent, IconButton, Divider, FormControl,
-  Modal, useMediaQuery, RadioGroup, Radio, FormControlLabel } from "@mui/material";
+  Modal, useMediaQuery, RadioGroup, Radio, FormControlLabel, 
+  Alert, Snackbar } from "@mui/material";
 import { tokens } from "../../theme";
 import Header from "../../components/Header";
 import AddIcon from "@mui/icons-material/Add";
@@ -9,7 +10,12 @@ import EditIcon from "@mui/icons-material/Edit";
 import DeleteIcon from "@mui/icons-material/Delete";
 import SaveIcon from "@mui/icons-material/Save";
 import CloseIcon from "@mui/icons-material/Close";
-import axios from "axios";
+import configBillApi from "../../services/configBill";
+
+// Custom Alert component to fix prop type warning
+const CustomAlert = forwardRef(function CustomAlert(props, ref) {
+  return <Alert ref={ref} {...props} />;
+});
 
 const ConfigBill = () => {
   const theme = useTheme();
@@ -19,29 +25,27 @@ const ConfigBill = () => {
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
 
   const [loading, setLoading] = useState(false);
+  const [alert, setAlert] = useState({
+    open: false,
+    message: "",
+    severity: "success"
+  });
+
+  // Add state for billing cycle start date
+  const [billingStartDate, setBillingStartDate] = useState(1);
 
   // Configuration type
   const [selectedConfigType, setSelectedConfigType] = useState("tiered");
 
-  // Price tiers state
-  const [priceTiers, setPriceTiers] = useState([
-    { id: 1, min: 0, max: 50, price: 1678, name: "Tier 1 (0-50 kWh)" },
-    { id: 2, min: 51, max: 100, price: 1734, name: "Tier 2 (51-100 kWh)" },
-    { id: 3, min: 101, max: 200, price: 2014, name: "Tier 3 (101-200 kWh)" },
-    { id: 4, min: 201, max: 300, price: 2536, name: "Tier 4 (201-300 kWh)" },
-    { id: 5, min: 301, max: 400, price: 2834, name: "Tier 5 (301-400 kWh)" },
-    { id: 6, min: 401, max: null, price: 2927, name: "Tier 6 (>400 kWh)" },
-  ]);
+  // Price tiers state - initialize as empty array since we'll fetch from API
+  const [priceTiers, setPriceTiers] = useState([]);
 
   // Single price state
   const [singlePrice, setSinglePrice] = useState(2000);
+  const [onePriceId, setOnePriceId] = useState(null);
 
   // Percentage-based price state
-  const [percentagePrices, setPercentagePrices] = useState([
-    { id: 1, percentage: 30, price: 1800, name: "Economy" },
-    { id: 2, percentage: 50, price: 2200, name: "Standard" },
-    { id: 3, percentage: 20, price: 2500, name: "Premium" }
-  ]);
+  const [percentagePrices, setPercentagePrices] = useState([]);
 
   // Modal states
   const [tierModalOpen, setTierModalOpen] = useState(false);
@@ -67,11 +71,17 @@ const ConfigBill = () => {
       setNewTier({ ...tier });
     } else {
       setEditingTier(null);
+      const nextStep = priceTiers.length > 0 ? Math.max(...priceTiers.map(t => t.step)) + 1 : 1;
+      const lastTier = priceTiers.length > 0 ? 
+        priceTiers.reduce((max, tier) => tier.step > max.step ? tier : max, priceTiers[0]) : 
+        { max: 0 };
+      
       setNewTier({
-        min: Math.max(...priceTiers.map(t => t.max || 0)) + 1,
+        min: lastTier.max !== null ? lastTier.max : 0,
         max: null,
         price: 0,
-        name: `Tier ${priceTiers.length + 1}`
+        name: `Tier ${nextStep}`,
+        step: nextStep
       });
     }
     setTierModalOpen(true);
@@ -159,36 +169,49 @@ const ConfigBill = () => {
     try {
       setLoading(true);
       
-      const tierData = {
-        min: parseInt(newTier.min),
-        max: newTier.max === '' ? null : (newTier.max === null ? null : parseInt(newTier.max)),
-        price: parseInt(newTier.price),
-        name: newTier.name
-      };
+      // Format data for API
+      const step = editingTier ? editingTier.step || priceTiers.length + 1 : priceTiers.length + 1;
+      const minKwh = parseInt(newTier.min);
+      const maxKwh = newTier.max === '' ? null : (newTier.max === null ? null : parseInt(newTier.max));
+      const price = parseInt(newTier.price);
+      
+      let response;
       
       if (editingTier) {
         // Update existing tier
-        console.log('API call: Update tier', tierData);
-        
-        setPriceTiers(
-          priceTiers.map(tier => 
-            tier.id === editingTier.id ? { ...tierData, id: tier.id } : tier
-          )
+        response = await configBillApi.editStairPriceConfig(
+          editingTier.id,
+          step,
+          minKwh,
+          maxKwh,
+          price
         );
       } else {
         // Add new tier
-        const newId = Math.max(0, ...priceTiers.map(t => t.id)) + 1;
-        console.log('API call: Add new tier', { ...tierData, id: newId });
-        
-        setPriceTiers([...priceTiers, { ...tierData, id: newId }]);
+        response = await configBillApi.createStairPriceConfig(
+          step,
+          minKwh,
+          maxKwh,
+          price
+        );
       }
       
-      setTierModalOpen(false);
-      alert(editingTier ? "Tier updated successfully!" : "New tier added successfully!");
+      // Check for data or message indicating success
+      if (response.data) {
+        // Fetch updated list
+        fetchStairPriceConfig();
+        setTierModalOpen(false);
+        showAlert(editingTier ? 
+          "Tier updated successfully!" : 
+          "New tier added successfully!"
+        );
+      } else {
+        throw new Error(response.message || "Unknown error");
+      }
       
     } catch (error) {
       console.error('Error saving tier:', error);
-      alert('Failed to save tier. Please try again.');
+      showAlert('Failed to save tier. Please try again.', "error");
     } finally {
       setLoading(false);
     }
@@ -199,35 +222,45 @@ const ConfigBill = () => {
     try {
       setLoading(true);
       
-      const percentageData = {
-        percentage: parseInt(newPercentage.percentage),
-        price: parseInt(newPercentage.price),
-        name: newPercentage.name
-      };
+      // Format data for API
+      const name = newPercentage.name;
+      const price = parseInt(newPercentage.price);
+      const percent = parseInt(newPercentage.percentage);
+      
+      let response;
       
       if (editingPercentage) {
         // Update existing percentage
-        console.log('API call: Update percentage price', percentageData);
-        
-        setPercentagePrices(
-          percentagePrices.map(item => 
-            item.id === editingPercentage.id ? { ...percentageData, id: item.id } : item
-          )
+        response = await configBillApi.editPercentPriceConfig(
+          editingPercentage.id,
+          name,
+          price,
+          percent
         );
       } else {
         // Add new percentage
-        const newId = Math.max(0, ...percentagePrices.map(p => p.id)) + 1;
-        console.log('API call: Add new percentage price', { ...percentageData, id: newId });
-        
-        setPercentagePrices([...percentagePrices, { ...percentageData, id: newId }]);
+        response = await configBillApi.createPercentPriceConfig(
+          name,
+          price,
+          percent
+        );
       }
       
-      setPercentageModalOpen(false);
-      alert(editingPercentage ? "Percentage price updated successfully!" : "New percentage price added successfully!");
+      if (response.data) {
+        // Fetch updated list
+        fetchPercentPriceConfig();
+        setPercentageModalOpen(false);
+        showAlert(response.message || (editingPercentage ? 
+          "Percentage price updated successfully!" : 
+          "New percentage price added successfully!")
+        );
+      } else {
+        throw new Error(response.message || "Unknown error");
+      }
       
     } catch (error) {
       console.error('Error saving percentage price:', error);
-      alert('Failed to save percentage price. Please try again.');
+      showAlert('Failed to save percentage price. Please try again.', "error");
     } finally {
       setLoading(false);
     }
@@ -237,25 +270,79 @@ const ConfigBill = () => {
   const handleSaveSinglePrice = async () => {
     try {
       setLoading(true);
-      console.log('API call: Save single price', singlePrice);
-      alert("Single price updated successfully!");
+      const response = await configBillApi.editOnePriceConfig(Number(singlePrice));
+      
+      if (response.data) {
+        showAlert(response.message || "Single price updated successfully!");
+        // Update local state if needed
+        setSinglePrice(response.data.price);
+        setOnePriceId(response.data.id);
+      } else {
+        throw new Error(response.message || "Unknown error");
+      }
     } catch (error) {
       console.error('Error saving single price:', error);
-      alert('Failed to save single price. Please try again.');
+      showAlert('Failed to save single price. Please try again.', "error");
     } finally {
       setLoading(false);
     }
   };
 
-  // Save configuration type with API call
+  // Function to map API priceType to component values
+  const mapApiToComponentType = (apiType) => {
+    const mapping = {
+      'one_price': 'single',
+      'stair_price': 'tiered',
+      'percent_price': 'percentage'
+    };
+    return mapping[apiType] || 'tiered'; // Default to tiered if unknown
+  };
+
+  // Function to map component values to API values
+  const mapComponentToApiType = (componentType) => {
+    const mapping = {
+      'single': 'one_price',
+      'tiered': 'stair_price',
+      'percentage': 'percent_price'
+    };
+    return mapping[componentType];
+  };
+
+  // Fetch configuration type from API
+  const fetchConfigType = async () => {
+    try {
+      setLoading(true);
+      const response = await configBillApi.getPriceConfig();
+      
+      if (response.data && response.data.priceType) {
+        const componentType = mapApiToComponentType(response.data.priceType);
+        setSelectedConfigType(componentType);
+      } else {
+        throw new Error(response.message || "Failed to fetch configuration type");
+      }
+    } catch (error) {
+      console.error("Error fetching configuration type:", error);
+      showAlert("Failed to load configuration type", "error");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Save configuration type with API call - updated to use the API
   const handleSaveConfigType = async () => {
     try {
       setLoading(true);
-      console.log('API call: Save configuration type', selectedConfigType);
-      alert(`Configuration type set to: ${selectedConfigType}`);
+      const apiType = mapComponentToApiType(selectedConfigType);
+      const response = await configBillApi.editPriceConfig(apiType);
+      
+      if (response.message) {
+        showAlert(response.message || "Configuration type updated successfully!");
+      } else {
+        throw new Error(response.message || "Unknown error");
+      }
     } catch (error) {
       console.error('Error saving configuration type:', error);
-      alert('Failed to save configuration type. Please try again.');
+      showAlert('Failed to save configuration type. Please try again.', "error");
     } finally {
       setLoading(false);
     }
@@ -265,12 +352,17 @@ const ConfigBill = () => {
   const handleDeleteTier = async (tierId) => {
     try {
       setLoading(true);
-      console.log('API call: Delete tier', tierId);
-      setPriceTiers(priceTiers.filter(tier => tier.id !== tierId));
-      alert("Tier deleted successfully!");
+      const response = await configBillApi.deleteStairPriceConfig(tierId);
+      
+      if (response.message) {
+        setPriceTiers(priceTiers.filter(tier => tier.id !== tierId));
+        showAlert(response.message || "Tier deleted successfully!");
+      } else {
+        throw new Error(response.message || "Unknown error");
+      }
     } catch (error) {
       console.error('Error deleting tier:', error);
-      alert('Failed to delete tier. Please try again.');
+      showAlert('Failed to delete tier. Please try again.', "error");
     } finally {
       setLoading(false);
     }
@@ -280,15 +372,167 @@ const ConfigBill = () => {
   const handleDeletePercentage = async (percentageId) => {
     try {
       setLoading(true);
-      console.log('API call: Delete percentage price', percentageId);
-      setPercentagePrices(percentagePrices.filter(item => item.id !== percentageId));
-      alert("Percentage price deleted successfully!");
+      const response = await configBillApi.deletePercentPriceConfig(percentageId);
+      
+      if (response.message) {
+        setPercentagePrices(percentagePrices.filter(item => item.id !== percentageId));
+        showAlert(response.message || "Percentage price deleted successfully!");
+      } else {
+        throw new Error(response.message || "Unknown error");
+      }
     } catch (error) {
       console.error('Error deleting percentage price:', error);
-      alert('Failed to delete percentage price. Please try again.');
+      showAlert('Failed to delete percentage price. Please try again.', "error");
     } finally {
       setLoading(false);
     }
+  };
+
+  // Helper function to fetch stair price config
+  const fetchStairPriceConfig = async () => {
+    try {
+      setLoading(true);
+      const response = await configBillApi.getStairPriceConfig();
+      
+      if (response.data) {
+        // Transform API data to match component state structure
+        const formattedData = response.data.map(item => ({
+          id: item.id,
+          min: item.minKwh,
+          max: item.maxKwh || null,
+          price: item.price,
+          name: `Tier ${item.step} (${item.minKwh}-${item.maxKwh || '∞'} kWh)`,
+          step: item.step
+        }));
+        
+        // Sort tiers by step number
+        formattedData.sort((a, b) => a.step - b.step);
+        setPriceTiers(formattedData);
+      } else {
+        throw new Error(response.message || "Failed to fetch tier data");
+      }
+    } catch (error) {
+      console.error("Error fetching stair price config:", error);
+      showAlert("Failed to load tiered pricing configuration", "error");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Helper function to fetch percentage price config
+  const fetchPercentPriceConfig = async () => {
+    try {
+      setLoading(true);
+      const response = await configBillApi.getPercentPriceConfig();
+      
+      if (response.data) {
+        // Transform API data to match component state structure
+        const formattedData = response.data.map(item => ({
+          id: item.id,
+          name: item.name,
+          price: item.price,
+          percentage: item.percent
+        }));
+        
+        setPercentagePrices(formattedData);
+      } else {
+        throw new Error(response.message || "Failed to fetch percentage price data");
+      }
+    } catch (error) {
+      console.error("Error fetching percentage price config:", error);
+      showAlert("Failed to load percentage price configuration", "error");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Function to fetch billing start date
+  const fetchBillingStartDate = async () => {
+    try {
+      setLoading(true);
+      const response = await configBillApi.getStartBillingDate();
+      if (response.data) {
+        setBillingStartDate(response.data.billingCycleStartDay);
+      } else {
+        throw new Error(response.message || "Failed to fetch billing start date");
+      }
+    } catch (error) {
+      console.error("Error fetching billing start date:", error);
+      showAlert("Failed to load billing start date", "error");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Function to save billing start date
+  const handleSaveBillingStartDate = async () => {
+    try {
+      setLoading(true);
+      const response = await configBillApi.editStartBillingDate(Number(billingStartDate));
+      
+      if (response.message) {
+        showAlert(response.message || "Billing start date updated successfully!");
+      } else {
+        throw new Error(response.message || "Unknown error");
+      }
+    } catch (error) {
+      console.error('Error saving billing start date:', error);
+      showAlert('Failed to save billing start date. Please try again.', "error");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Handle billing start date input change
+  const handleBillingStartDateChange = (e) => {
+    const value = e.target.value.replace(/[^0-9]/g, '');
+    const numValue = value === '' ? 1 : parseInt(value, 10);
+    
+    // Make sure the value is between 1 and 28
+    if (numValue >= 1 && numValue <= 28) {
+      setBillingStartDate(numValue);
+    }
+  };
+
+  // Fetch initial pricing data - updated to include config type
+  useEffect(() => {
+    const fetchInitialData = async () => {
+      await fetchConfigType();
+      await fetchBillingStartDate(); // Add this line
+      await fetchOnePriceConfig();
+      await fetchPercentPriceConfig();
+      await fetchStairPriceConfig();
+    };
+
+    fetchInitialData();
+  }, []);
+
+  // Single price config fetch
+  const fetchOnePriceConfig = async () => {
+    try {
+      setLoading(true);
+      const response = await configBillApi.getOnePriceConfig();
+      if (response.data) {
+        setSinglePrice(response.data.price);
+        setOnePriceId(response.data.id);
+      } else {
+        throw new Error(response.message || "Failed to fetch single price data");
+      }
+    } catch (error) {
+      console.error("Error fetching one price config:", error);
+      showAlert("Failed to load single price configuration", "error");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Show alert helper
+  const showAlert = (message, severity = "success") => {
+    setAlert({
+      open: true,
+      message,
+      severity
+    });
   };
 
   // Modal style configuration
@@ -314,6 +558,22 @@ const ConfigBill = () => {
         subtitle="Set up pricing tiers" 
       />
       
+      {/* Snackbar with fixed implementation */}
+      <Snackbar
+        open={alert.open}
+        autoHideDuration={6000}
+        onClose={() => setAlert({...alert, open: false})}
+        anchorOrigin={{ vertical: "top", horizontal: "center" }}
+      >
+        <CustomAlert 
+          onClose={() => setAlert({...alert, open: false})} 
+          severity={alert.severity} 
+          sx={{ width: '100%' }}
+        >
+          {alert.message}
+        </CustomAlert>
+      </Snackbar>
+
       <Box
         display="grid"
         gridTemplateColumns={{ xs: "1fr", md: "repeat(12, 1fr)" }}
@@ -379,6 +639,58 @@ const ConfigBill = () => {
           </Card>
         </Box>
 
+        {/* Billing Cycle Start Date Box - Add this new section */}
+        <Box gridColumn={{ xs: "span 12", md: "span 12" }}>
+          <Card sx={{ backgroundColor: colors.primary[400], boxShadow: 3, mb: { xs: 2, sm: 3 } }}>
+            <CardContent sx={{ p: { xs: 1.5, sm: 3 } }}>
+              <Typography 
+                variant={isMobile ? "h5" : "h4"} 
+                color={colors.grey[100]} 
+                fontWeight="bold"
+                mb={2}
+              >
+                Billing Cycle Configuration
+              </Typography>
+              
+              <Divider sx={{ mb: 2, borderColor: colors.grey[700] }} />
+              
+              <Box 
+                display="grid" 
+                gridTemplateColumns={{ xs: "1fr", sm: "2fr 1fr" }}
+                gap={2}
+                alignItems="center"
+                sx={{
+                  p: { xs: 1.5, sm: 2 }, 
+                  borderRadius: 1,
+                  backgroundColor: colors.primary[400],
+                  border: `1px solid ${colors.grey[800]}`,
+                }}
+              >
+                <TextField
+                  label="Billing Cycle Start Day (1-28)"
+                  value={billingStartDate}
+                  onChange={handleBillingStartDateChange}
+                  size={isMobile ? "small" : "medium"}
+                  disabled={loading}
+                  type="number"
+                  inputProps={{ min: 1, max: 28 }}
+                  helperText="Enter a day between 1 and 28"
+                />
+                <Button
+                  variant="contained"
+                  color="secondary"
+                  startIcon={<SaveIcon />}
+                  onClick={handleSaveBillingStartDate}
+                  disabled={loading}
+                  size={isMobile ? "small" : "medium"}
+                >
+                  {loading ? "Saving..." : "Save"}
+                </Button>
+              </Box>
+            </CardContent>
+          </Card>
+        </Box>
+
         {/* Single Price */}
         <Box gridColumn={{ xs: "span 12", md: "span 12" }}>
           <Card sx={{ backgroundColor: colors.primary[400], boxShadow: 3, mb: { xs: 2, sm: 3 } }}>
@@ -411,6 +723,7 @@ const ConfigBill = () => {
                   value={singlePrice}
                   onChange={handleSinglePriceChange}
                   size={isMobile ? "small" : "medium"}
+                  disabled={loading}
                 />
                 <Button
                   variant="contained"
@@ -420,7 +733,7 @@ const ConfigBill = () => {
                   disabled={loading}
                   size={isMobile ? "small" : "medium"}
                 >
-                  Save
+                  {loading ? "Saving..." : "Save"}
                 </Button>
               </Box>
             </CardContent>

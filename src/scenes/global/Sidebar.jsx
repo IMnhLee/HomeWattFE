@@ -96,9 +96,9 @@ const ProSidebar = ({
           icon: <DashboardOutlinedIcon />,
           subItems: [
             { title: 'Overview', to: "/", icon: <MonitorHeartOutlinedIcon /> },
-            { title: "Applicant", to: "/monitoring/app", icon: <SpeedIcon /> },
+            // { title: "Applicant", to: "/monitoring/app", icon: <SpeedIcon /> },
             { title: "Usage", to: "/consumptions", icon: <TimelineOutlinedIcon /> },
-            { title: "Emission", to: "/monitoring/emission", icon: <Co2OutlinedIcon /> },
+            // { title: "Emission", to: "/monitoring/emission", icon: <Co2OutlinedIcon /> },
           ],
           defaultOpen: false, // Thêm lại defaultOpen cho Dashboard
         },
@@ -119,8 +119,8 @@ const ProSidebar = ({
           ],
           defaultOpen: false, // Thêm lại defaultOpen cho Dashboard
         },
-        { title: "Settings", to: "/setting", icon: <SettingsOutlinedIcon /> },
-        { title: "report", to: "/report", icon: <QueryStatsOutlinedIcon /> },
+        // { title: "Settings", to: "/setting", icon: <SettingsOutlinedIcon /> },
+        // { title: "report", to: "/report", icon: <QueryStatsOutlinedIcon /> },
       ],
     },
     {
@@ -130,22 +130,22 @@ const ProSidebar = ({
         { title: "Contacts Information", to: "/faq", icon: <ContactsOutlinedIcon /> },
       ],
     },
-    {
-      title: "Admin",
-      role: ["admin", "superadmin"],
-      items: [
-        { title: "Profile Form", to: "/form", icon: <PersonOutlinedIcon /> },
-        { title: "Calendar", to: "/calendar", icon: <CalendarTodayOutlinedIcon /> },
-        { title: "FAQ Page", to: "/faq", icon: <HelpOutlineOutlinedIcon /> },
-      ],
-    },
-    {
-      title: "Superadmin",
-      role: ["superadmin"],
-      items: [
-        { title: "Bar Chart", to: "/bar", icon: <BarChartOutlinedIcon /> },
-      ],
-    },
+    // {
+    //   title: "Admin",
+    //   role: ["admin", "superadmin"],
+    //   items: [
+    //     { title: "Profile Form", to: "/form", icon: <PersonOutlinedIcon /> },
+    //     { title: "Calendar", to: "/calendar", icon: <CalendarTodayOutlinedIcon /> },
+    //     { title: "FAQ Page", to: "/faq", icon: <HelpOutlineOutlinedIcon /> },
+    //   ],
+    // },
+    // {
+    //   title: "Superadmin",
+    //   role: ["superadmin"],
+    //   items: [
+    //     { title: "Bar Chart", to: "/bar", icon: <BarChartOutlinedIcon /> },
+    //   ],
+    // },
   ];
   
 
@@ -225,7 +225,7 @@ const ProSidebar = ({
                         title={item.title}
                         label={item.title}
                         icon={item.icon}
-                        defaultOpen={item.defaultOpen || false} // Sử dụng defaultOpen từ config
+                        defaultOpen={item.defaultOpen || true} // Sử dụng defaultOpen từ config
                         active={isSubMenuActive(item.subItems)}
                       >
                         {item.subItems.map((subItem) => (

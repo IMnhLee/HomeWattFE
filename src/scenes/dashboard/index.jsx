@@ -8,6 +8,7 @@ import ElectricBoltIcon from '@mui/icons-material/ElectricBolt';
 import AttachMoneyIcon from '@mui/icons-material/AttachMoney';
 import LocalAtmIcon from '@mui/icons-material/LocalAtm';
 import PaymentsIcon from '@mui/icons-material/Payments';
+import energyApi from "../../services/energy"; // Import the energy API
 
 const Dashboard = () => {
   const theme = useTheme();
@@ -17,11 +18,11 @@ const Dashboard = () => {
   const [chartView, setChartView] = useState('energy');
   const [isLoading, setIsLoading] = useState(true);
 
-  // Mock data for consumption and costs - simplified to a single rate
+  // Data structure for consumption and costs
   const [consumptionData, setConsumptionData] = useState({
     total: 0,
     cost: 0,
-    currentRate: 2000, // Single rate: 2000 VND/kWh
+    currentRate: 2000,
     hourlyData: [],
     categoryDistribution: []
   });
@@ -33,102 +34,50 @@ const Dashboard = () => {
     }
   };
 
-  // Fetch mock data
+  // Fetch data from API
   useEffect(() => {
     const fetchData = async () => {
       setIsLoading(true);
       try {
-        // Simulate API delay
-        await new Promise(resolve => setTimeout(resolve, 1000));
-
-        // Specific mock data for a full day with realistic patterns
-        const now = new Date();
-        let hourlyData = [];
+        // Call the API
+        const response = await energyApi.getConsumptionInOneCycle();
+        const apiData = response.data;
         
-        // Predefined consumption patterns
-        const mockHourlyData = [
-          { hour: 0, Lighting: 0.2, HVAC: 0.8, Kitchen: 0.1, Electronics: 0.3, Other: 0.1 }, // 12 AM
-          { hour: 1, Lighting: 0.1, HVAC: 0.7, Kitchen: 0.1, Electronics: 0.2, Other: 0.1 }, // 1 AM
-          { hour: 2, Lighting: 0.1, HVAC: 0.6, Kitchen: 0.0, Electronics: 0.2, Other: 0.0 }, // 2 AM
-          { hour: 3, Lighting: 0.1, HVAC: 0.6, Kitchen: 0.0, Electronics: 0.1, Other: 0.0 }, // 3 AM
-          { hour: 4, Lighting: 0.2, HVAC: 0.5, Kitchen: 0.1, Electronics: 0.1, Other: 0.0 }, // 4 AM
-          { hour: 5, Lighting: 0.3, HVAC: 0.5, Kitchen: 0.2, Electronics: 0.2, Other: 0.1 }, // 5 AM
-          { hour: 6, Lighting: 0.4, HVAC: 0.6, Kitchen: 0.4, Electronics: 0.3, Other: 0.1 }, // 6 AM
-          { hour: 7, Lighting: 0.4, HVAC: 0.7, Kitchen: 0.6, Electronics: 0.4, Other: 0.2 }, // 7 AM
-          { hour: 8, Lighting: 0.3, HVAC: 0.8, Kitchen: 0.4, Electronics: 0.5, Other: 0.2 }, // 8 AM
-          { hour: 9, Lighting: 0.2, HVAC: 0.9, Kitchen: 0.3, Electronics: 0.6, Other: 0.2 }, // 9 AM
-          { hour: 10, Lighting: 0.2, HVAC: 1.0, Kitchen: 0.2, Electronics: 0.7, Other: 0.2 }, // 10 AM
-          { hour: 11, Lighting: 0.2, HVAC: 1.1, Kitchen: 0.5, Electronics: 0.8, Other: 0.2 }, // 11 AM
-          { hour: 12, Lighting: 0.2, HVAC: 1.2, Kitchen: 0.7, Electronics: 0.8, Other: 0.2 }, // 12 PM
-          { hour: 13, Lighting: 0.2, HVAC: 1.3, Kitchen: 0.4, Electronics: 0.7, Other: 0.2 }, // 1 PM
-          { hour: 14, Lighting: 0.2, HVAC: 1.4, Kitchen: 0.3, Electronics: 0.6, Other: 0.2 }, // 2 PM
-          { hour: 15, Lighting: 0.2, HVAC: 1.3, Kitchen: 0.3, Electronics: 0.7, Other: 0.2 }, // 3 PM
-          { hour: 16, Lighting: 0.3, HVAC: 1.2, Kitchen: 0.4, Electronics: 0.8, Other: 0.3 }, // 4 PM
-          { hour: 17, Lighting: 0.4, HVAC: 1.3, Kitchen: 0.6, Electronics: 0.9, Other: 0.3 }, // 5 PM
-          { hour: 18, Lighting: 0.6, HVAC: 1.4, Kitchen: 0.8, Electronics: 1.0, Other: 0.3 }, // 6 PM
-          { hour: 19, Lighting: 0.7, HVAC: 1.3, Kitchen: 0.9, Electronics: 1.1, Other: 0.3 }, // 7 PM
-          { hour: 20, Lighting: 0.7, HVAC: 1.2, Kitchen: 0.5, Electronics: 1.2, Other: 0.3 }, // 8 PM
-          { hour: 21, Lighting: 0.6, HVAC: 1.1, Kitchen: 0.3, Electronics: 1.0, Other: 0.2 }, // 9 PM
-          { hour: 22, Lighting: 0.5, HVAC: 1.0, Kitchen: 0.2, Electronics: 0.8, Other: 0.2 }, // 10 PM
-          { hour: 23, Lighting: 0.3, HVAC: 0.9, Kitchen: 0.1, Electronics: 0.5, Other: 0.1 }, // 11 PM
-        ];
-
-        // Categories for aggregated data
-        let categories = {
-          "Lighting": 0,
-          "HVAC": 0,
-          "Kitchen": 0,
-          "Electronics": 0,
-          "Other": 0
-        };
-
-        // Calculate the total, create proper hourly data format
-        let total = 0;
+        // Extract basic metrics
+        const total = apiData.totalEnergy;
+        const cost = apiData.totalCost;
+        const currentRate = apiData.currentPrice;
         
-        mockHourlyData.forEach(hourData => {
-          const date = new Date();
-          date.setHours(hourData.hour, 0, 0, 0);
+        // Transform chart data - each day entry becomes an hourly data point
+        // For simplicity, we'll treat each day as a separate "hour" for the chart
+        const hourlyData = apiData.chartData.map(day => {
+          // Parse ISO date string directly - no manual parsing needed
+          const date = new Date(day.label);
           
-          const lighting = hourData.Lighting;
-          const hvac = hourData.HVAC;
-          const kitchen = hourData.Kitchen;
-          const electronics = hourData.Electronics;
-          const other = hourData.Other;
-          
-          const hourTotal = lighting + hvac + kitchen + electronics + other;
-          total += hourTotal;
-          
-          categories.Lighting += lighting;
-          categories.HVAC += hvac;
-          categories.Kitchen += kitchen;
-          categories.Electronics += electronics;
-          categories.Other += other;
-          
-          hourlyData.push({
+          // Create a data object with the date and all device values
+          return {
             date: date.getTime(),
-            Lighting: lighting,
-            HVAC: hvac,
-            Kitchen: kitchen,
-            Electronics: electronics,
-            Other: other,
-            Total: hourTotal
-          });
+            ...Object.fromEntries(
+              Object.entries(day.data).map(([deviceId, value]) => [
+                apiData.lineNames[deviceId] || deviceId, // Use friendly name if available
+                value // Energy value
+              ])
+            ),
+            Total: day.totalEnergy
+          };
         });
-
-        // Calculate cost (fixed rate: 2000 VND per kWh)
-        const cost = total * 2000;
-
-        // Prepare category distribution for pie chart
-        const categoryDistribution = Object.entries(categories).map(([name, value]) => ({
-          name,
-          value,
-          cost: value * 2000
-        }));
-
+        
+        // Create category distribution for pie chart
+        const categoryDistribution = Object.entries(apiData.lineNames).map(([deviceId, name]) => ({
+          name: name,
+          value: apiData.lineEnergy[deviceId] || 0,
+          cost: apiData.lineCosts[deviceId] || 0
+        })).filter(item => item.value > 0); // Remove zero-consumption devices
+        
         setConsumptionData({
-          ...consumptionData,
           total: total.toFixed(2),
           cost: cost.toFixed(0),
+          currentRate: currentRate,
           hourlyData,
           categoryDistribution
         });
@@ -144,21 +93,23 @@ const Dashboard = () => {
 
   // Stack bar chart configuration
   const getStackedBarOptions = () => {
+    // Create series from categories
     const series = consumptionData.categoryDistribution.map(cat => ({
       name: cat.name,
       type: 'bar',
       stack: 'total',
+      // emphasis: { focus: 'series' }, // Highlight on hover
       data: consumptionData.hourlyData.map(hour => [
-        hour.date,
-        chartView === 'energy' ? hour[cat.name] : hour[cat.name] * 2000
+        hour.date, 
+        chartView === 'energy' ? (hour[cat.name] || 0) : (hour[cat.name] || 0) * consumptionData.currentRate
       ])
     }));
 
     return {
       title: {
         text: chartView === 'energy' 
-          ? `Năng lượng tiêu thụ` 
-          : `Tiền điện`,
+          ? `Năng lượng tiêu thụ theo thiết bị` 
+          : `Chi phí theo thiết bị`,
         left: 'center',
         textStyle: {
           color: colors.grey[100]
@@ -168,19 +119,51 @@ const Dashboard = () => {
         trigger: 'axis',
         axisPointer: { type: 'shadow' },
         formatter: function(params) {
-          let tooltip = `<div style="font-weight: bold; margin-bottom: 5px">${new Date(params[0].value[0]).toLocaleString()}</div>`;
-          let sum = 0;
+          // Get date from timestamp
+          const date = new Date(params[0].value[0]);
+          const dateString = date.toLocaleDateString();
           
+          // Create header
+          let tooltip = `<div style="font-weight: bold; margin-bottom: 8px">${dateString}</div>`;
+          
+          // Calculate total
+          let sum = 0;
+          params.forEach(param => sum += param.value[1]);
+          
+          // Sort by value (descending)
+          params.sort((a, b) => b.value[1] - a.value[1]);
+          
+          // Add each device with value and percentage
           params.forEach(param => {
+            if (param.value[1] === 0) return; // Skip zero values
+            
             const value = param.value[1];
-            sum += value;
+            const percentage = ((value / sum) * 100).toFixed(1);
+            const unit = chartView === 'energy' ? 'kWh' : 'VND';
+            
+            // Format numbers with thousand separators
+            const formattedValue = value.toLocaleString(undefined, {
+              maximumFractionDigits: chartView === 'energy' ? 2 : 0
+            });
+            
             tooltip += `<div style="display: flex; align-items: center; margin: 3px 0">
               <span style="display: inline-block; width: 10px; height: 10px; border-radius: 50%; background-color: ${param.color}; margin-right: 5px"></span>
-              <span>${param.seriesName}: ${value.toLocaleString(undefined, {maximumFractionDigits: 2})} ${chartView === 'energy' ? 'kWh' : 'VND'}</span>
+              <span>${param.seriesName}: ${formattedValue} ${unit}</span>
             </div>`;
           });
           
-          tooltip += `<div style="margin-top: 5px; font-weight: bold">Total: ${sum.toLocaleString(undefined, {maximumFractionDigits: 2})} ${chartView === 'energy' ? 'kWh' : 'VND'}</div>`;
+          // Add total at bottom with separator line
+          const formattedSum = sum.toLocaleString(undefined, {
+            maximumFractionDigits: chartView === 'energy' ? 2 : 0
+          });
+          
+          tooltip += `
+            <div style="margin-top: 8px; padding-top: 6px; border-top: 1px solid rgba(255,255,255,0.2); 
+                     font-weight: bold; display: flex; justify-content: space-between">
+              <span>Tổng:</span>
+              <span>${formattedSum} ${chartView === 'energy' ? 'kWh' : 'VND'}</span>
+            </div>`;
+          
           return tooltip;
         }
       },
@@ -201,12 +184,13 @@ const Dashboard = () => {
       },
       xAxis: {
         type: 'time',
-        axisLabel: {
-          formatter: function(value) {
-            const date = new Date(value);
-            return date.getHours() + ':00';
-          }
-        }
+        // axisLabel: {
+        //   formatter: function(value) {
+        //     // Format date as day/month
+        //     const date = new Date(value);
+        //     return `${date.getDate()}/${date.getMonth() + 1}`;
+        //   }
+        // }
       },
       yAxis: {
         type: 'value',
@@ -216,7 +200,14 @@ const Dashboard = () => {
           }
         }
       },
-      series: series
+      series: series,
+      color: [
+        colors.blueAccent[500], 
+        colors.greenAccent[500], 
+        colors.redAccent[500],
+        colors.yellowAccent[500],
+        colors.grey[400]
+      ]
     };
   };
 
@@ -227,8 +218,8 @@ const Dashboard = () => {
         series: consumptionData.categoryDistribution.map(cat => parseFloat(cat.value.toFixed(2))),
         labels: consumptionData.categoryDistribution.map(cat => cat.name),
         colors: [
-          colors.greenAccent[500], 
           colors.blueAccent[500], 
+          colors.greenAccent[500], 
           colors.redAccent[500],
           colors.yellowAccent[500],
           colors.grey[400]
@@ -240,8 +231,8 @@ const Dashboard = () => {
         series: consumptionData.categoryDistribution.map(cat => parseFloat(cat.cost.toFixed(0))),
         labels: consumptionData.categoryDistribution.map(cat => cat.name),
         colors: [
-          colors.greenAccent[500], 
           colors.blueAccent[500], 
+          colors.greenAccent[500], 
           colors.redAccent[500],
           colors.yellowAccent[500],
           colors.grey[400]

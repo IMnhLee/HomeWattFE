@@ -16,7 +16,8 @@ import {
   InputLabel,
   Select,
   MenuItem,
-  Chip
+  Chip,
+  CircularProgress
 } from "@mui/material";
 import { 
   CalendarToday,
@@ -33,131 +34,70 @@ import { tokens } from "../../theme";
 import Header from "../../components/Header";
 import BarMixedLineChart from "../../components/BarMixedLineChart";
 import StackBarChart from "../../components/StackBarChart";
+import energyApi from "../../services/energy.js"; // Import the energy API
 
-// Mock devices and their colors
-const DEVICES = [
-  { id: 1, name: "Air Conditioner", room: "Living Room", floor: "1st Floor", color: "#6870fa" },
-  { id: 2, name: "Refrigerator", room: "Kitchen", floor: "1st Floor", color: "#4cceac" },
-  { id: 3, name: "Television", room: "Living Room", floor: "1st Floor", color: "#ffcc00" },
-  { id: 4, name: "Lighting", room: "Living Room", floor: "1st Floor", color: "#db4f4a" },
-  { id: 5, name: "Washing Machine", room: "Laundry", floor: "2nd Floor", color: "#a3a3a3" },
-  { id: 6, name: "Lighting", room: "Kitchen", floor: "1st Floor", color: "#7e57c2" },
-  { id: 7, name: "Lighting", room: "Bedroom", floor: "2nd Floor", color: "#26c6da" },
-  { id: 8, name: "Lighting", room: "Bathroom", floor: "2nd Floor", color: "#ff7043" },
-  { id: 9, name: "Heating System", room: "Living Room", floor: "1st Floor", color: "#6870fa" },
-  { id: 10, name: "Dishwasher", room: "Kitchen", floor: "1st Floor", color: "#ff7043" },
-  { id: 11, name: "Computer", room: "Office", floor: "2nd Floor", color: "#ff7043" },
-  { id: 12, name: "Printer", room: "Office", floor: "2nd Floor", color: "#ff7043" },
-  { id: 13, name: "Microwave", room: "Kitchen", floor: "1st Floor", color: "#ff7043" },
-  { id: 14, name: "Coffee Maker", room: "Kitchen", floor: "1st Floor", color: "#ff7043" },
-  { id: 15, name: "Electric Kettle", room: "Kitchen", floor: "1st Floor", color: "#26c6da" },
-  { id: 16, name: "Toaster", room: "Kitchen", floor: "1st Floor", color: "#7e57c2" },
-  { id: 17, name: "Vacuum Cleaner", room: "Living Room", floor: "1st Floor", color: "#a3a3a3" },
-  { id: 18, name: "Hair Dryer", room: "Bathroom", floor: "2nd Floor", color: "#db4f4a" },
-  { id: 19, name: "Electric Toothbrush", room: "Bathroom", floor: "2nd Floor", color: "#ffcc00" },
-  { id: 20, name: "Electric Shaver", room: "Bathroom", floor: "2nd Floor", color: "#4cceac" }
+// Device colors palette (used for API data)
+const DEVICE_COLORS = [
+  "#6870fa", "#4cceac", "#ffcc00", "#db4f4a", "#a3a3a3", 
+  "#7e57c2", "#26c6da", "#ff7043", "#008080", "#ff69b4",
+  "#8a2be2", "#00ff00", "#ff4500", "#4b0082", "#ffd700",
+  "#00bfff", "#ff1493", "#00ced1", "#ff6347", "#7fff00"
 ];
 
-// Generate mock data
-const generateMockData = (startDate, endDate, viewType) => {
-  const data = [];
-  let currentDate = new Date(startDate);
+// Helper function to transform API data to the format expected by our charts
+const transformApiData = (apiResponse) => {
+  if (!apiResponse || !apiResponse.data) return [];
+
+  const { timeLabels, lines, totalsByTime } = apiResponse.data;
   
-  const generateRandomConsumption = (baseValue, variance) => {
-    return +(baseValue + (Math.random() * variance * 2 - variance)).toFixed(2);
-  };
-  
-  while (currentDate <= endDate) {
+  const data = timeLabels.map((timeLabel, index) => {
     const entry = {
-      timestamp: new Date(currentDate),
-      total: 0,
+      timestamp: new Date(timeLabel),
+      total: totalsByTime[index] || 0,
       devices: {}
     };
     
-    // Different patterns for different times of day
-    const hour = currentDate.getHours();
-    let multiplier = 1;
-    const dayOfWeek = currentDate.getDay();
-
-    
-    // Higher consumption in morning and evening
-    if (viewType === 'day') {
-      if (hour >= 6 && hour <= 9) multiplier = 1.5; // Morning peak
-      else if (hour >= 18 && hour <= 22) multiplier = 2; // Evening peak
-      else if (hour >= 0 && hour <= 5) multiplier = 0.5; // Night low
-    } else if (dayOfWeek === 0 || dayOfWeek === 6) {
-      // Weekend vs weekday patterns for month view
-      multiplier = 1.3; // Weekends
-    }
-    
-    // Generate consumption for each device
-    DEVICES.forEach(device => {
-      let baseValue;
-      
-      switch(device.id) {
-        case 1: // Air Conditioner - high in summer months
-          baseValue = viewType === 'day' ? 0.2 : 5;
-          if ([5, 6, 7, 8].includes(currentDate.getMonth())) baseValue *= 2;
-          break;
-        case 2: // Refrigerator - consistent
-          baseValue = viewType === 'day' ? 0.15 : 3.5;
-          break;
-        case 3: // Television - higher in evening
-          baseValue = viewType === 'day' ? 0.1 : 2;
-          if (hour >= 19 && hour <= 23) baseValue *= 1.8;
-          break;
-        case 4: // Lighting - higher in evening/night
-          baseValue = viewType === 'day' ? 0.05 : 1;
-          if (hour >= 17 || hour <= 7) baseValue *= 2;
-          break;
-        case 5: // Washing Machine - periodic usage
-          baseValue = viewType === 'day' ? 0.3 : 1.5;
-          // More likely to be used on weekends or certain hours
-          if (viewType === 'day' && (hour === 10 || hour === 18)) baseValue *= 3;
-          else if (dayOfWeek === 6 || dayOfWeek === 0) baseValue *= 2;
-          else baseValue *= (Math.random() > 0.7 ? 1 : 0.2); // Occasional usage
-          break;
-        default:
-          baseValue = 0.1;
-      }
-      
-      const consumption = generateRandomConsumption(baseValue * multiplier, baseValue * 0.3);
-      entry.devices[device.id] = consumption;
-      entry.total += consumption;
+    // Map each line's data to the devices object
+    lines.forEach((line) => {
+      entry.devices[line.lineCode] = line.data[index] || 0;
     });
     
-    data.push(entry);
-    
-    // Increment based on view type
-    if (viewType === 'day') {
-      currentDate = addHours(currentDate, 1);
-    } else {
-      currentDate = addDays(currentDate, 1);
-    }
-  }
+    return entry;
+  });
   
   return data;
 };
 
-// Helper to add hours
-const addHours = (date, hours) => {
-  const newDate = new Date(date);
-  newDate.setHours(newDate.getHours() + hours);
-  return newDate;
+// Function to extract device data from API lines
+const extractApiDevices = (apiResponse) => {
+  if (!apiResponse || !apiResponse.data || !apiResponse.data.lines) return [];
+  
+  return apiResponse.data.lines.map((line, index) => ({
+    id: line.lineCode,
+    name: line.lineName,
+    room: line.roomName,
+    floor: line.floorName,
+    color: DEVICE_COLORS[index % DEVICE_COLORS.length]
+  }));
 };
+
+// Keep the rest of the helper functions as they might be needed later
 
 const ConsumptionPage = () => {
   const theme = useTheme();
   const colors = tokens(theme.palette.mode);
   
-  // View state (day or month)
-  const [viewType, setViewType] = useState('day');
+  // View state - change default to 'daily' and fix naming
+  const [viewType, setViewType] = useState('daily');
   
   // Selected date
   const [selectedDate, setSelectedDate] = useState(new Date());
   
-  // Mock data
+  // API data states
   const [consumptionData, setConsumptionData] = useState([]);
+  const [devices, setDevices] = useState([]); // API-provided devices
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
   
   // Fixed energy unit (removed selector)
   const energyUnit = "kWh";
@@ -175,51 +115,59 @@ const ConsumptionPage = () => {
   
   // Derived data for filters
   const uniqueFloors = useMemo(() => 
-    [...new Set(DEVICES.map(device => device.floor))].sort(),
-    []
+    [...new Set(devices.map(device => device.floor))].sort(),
+    [devices]
   );
   
   const uniqueRooms = useMemo(() => 
-    [...new Set(DEVICES.map(device => device.room))].sort(),
-    []
+    [...new Set(devices.map(device => device.room))].sort(),
+    [devices]
   );
   
   // Filter devices based on selected criteria
   const filteredDevices = useMemo(() => {
-    if (filterType === 'none') return DEVICES;
+    if (filterType === 'none') return devices;
     if (filterType === 'floor' && selectedFloor) {
-      return DEVICES.filter(device => device.floor === selectedFloor);
+      return devices.filter(device => device.floor === selectedFloor);
     }
     if (filterType === 'room' && selectedRoom) {
-      return DEVICES.filter(device => device.room === selectedRoom);
+      return devices.filter(device => device.room === selectedRoom);
     }
-    return DEVICES;
-  }, [filterType, selectedFloor, selectedRoom]);
+    return devices;
+  }, [filterType, selectedFloor, selectedRoom, devices]);
   
-  // Load data when date or view type changes
+  // Load data from API when date or view type changes - update to use 'daily' instead of 'day'
   useEffect(() => {
-    let startDate, endDate;
+    const fetchData = async () => {
+      setLoading(true);
+      setError(null);
+      
+      try {
+        const response = await energyApi.getConsumptionByDate(viewType, selectedDate);
+        
+        // Transform API data to the format expected by our component
+        const transformedData = transformApiData(response);
+        setConsumptionData(transformedData);
+        
+        // Extract device information from the response
+        const extractedDevices = extractApiDevices(response);
+        setDevices(extractedDevices);
+      } catch (err) {
+        console.error("Error fetching consumption data:", err);
+        setError("Failed to load energy consumption data. Please try again later.");
+      } finally {
+        setLoading(false);
+      }
+    };
     
-    if (viewType === 'day') {
-      startDate = new Date(selectedDate);
-      startDate.setHours(0, 0, 0, 0);
-      endDate = new Date(selectedDate);
-      endDate.setHours(23, 59, 59, 999);
-    } else {
-      startDate = startOfMonth(selectedDate);
-      endDate = endOfMonth(selectedDate);
-    }
-    
-    // Generate mock data (in a real app, this would be an API call)
-    const data = generateMockData(startDate, endDate, viewType);
-    setConsumptionData(data);
+    fetchData();
   }, [selectedDate, viewType]);
   
-  
-  // Update chart options to use filtered devices
+  // Update chart options - change 'day' to 'daily' in all conditionals
   const chartOptions = useMemo(() => {
-    if (!consumptionData.length) return {};
+    if (!consumptionData.length || loading) return {};
     
+    // Generate series from filtered devices
     const series = filteredDevices.map(device => ({
       name: device.name,
       type: 'bar',
@@ -227,11 +175,11 @@ const ConsumptionPage = () => {
       itemStyle: { color: device.color },
       data: consumptionData.map(entry => [
         entry.timestamp,
-        entry.devices[device.id]
+        entry.devices[device.id] || 0  // Use 0 if the device has no data for this timestamp
       ])
     }));
     
-    const unitLabel = energyUnit === 'kWh' ? 'kWh' : 'watt';
+    const unitLabel = 'kWh';
     
     return {
       legend: {
@@ -244,7 +192,7 @@ const ConsumptionPage = () => {
         type: 'time',
         axisLabel: {
           formatter: (value) => {
-            if (viewType === 'day') {
+            if (viewType === 'daily') {
               return format(new Date(value), 'HH:mm');
             } else {
               return format(new Date(value), 'dd/MM');
@@ -263,7 +211,7 @@ const ConsumptionPage = () => {
           if (Array.isArray(params)) {
             // Group tooltip
             const date = new Date(params[0].value[0]);
-            let header = viewType === 'day' 
+            let header = viewType === 'daily' 
               ? format(date, 'dd/MM/yyyy HH:mm') 
               : format(date, 'dd/MM/yyyy');
             
@@ -294,11 +242,11 @@ const ConsumptionPage = () => {
         }
       }
     };
-  }, [consumptionData, colors, viewType, energyUnit, filteredDevices]);
+  }, [consumptionData, colors, viewType, filteredDevices, loading]);
   
-  // Update the stats calculation to use filtered devices
+  // Update the stats calculation to use filtered devices from API
   const stats = useMemo(() => {
-    if (!consumptionData.length) return { total: 0, highest: 0, deviceBreakdown: [] };
+    if (!consumptionData.length || loading) return { total: 0, highest: 0, deviceBreakdown: [] };
     
     // Get IDs of filtered devices
     const filteredDeviceIds = filteredDevices.map(device => device.id);
@@ -307,7 +255,7 @@ const ConsumptionPage = () => {
     const total = consumptionData.reduce((sum, entry) => {
       let filteredTotal = 0;
       Object.entries(entry.devices).forEach(([deviceId, consumption]) => {
-        if (filteredDeviceIds.includes(Number(deviceId))) {
+        if (filteredDeviceIds.includes(deviceId)) {
           filteredTotal += consumption;
         }
       });
@@ -319,7 +267,7 @@ const ConsumptionPage = () => {
     consumptionData.forEach(entry => {
       let filteredEntryTotal = 0;
       Object.entries(entry.devices).forEach(([deviceId, consumption]) => {
-        if (filteredDeviceIds.includes(Number(deviceId))) {
+        if (filteredDeviceIds.includes(deviceId)) {
           filteredEntryTotal += consumption;
         }
       });
@@ -353,11 +301,11 @@ const ConsumptionPage = () => {
     const deviceBreakdown = Object.values(deviceTotals).sort((a, b) => b.total - a.total);
     
     return { total, highest, deviceBreakdown };
-  }, [consumptionData, filteredDevices]);
+  }, [consumptionData, filteredDevices, loading]);
   
   // Format the date display
   const dateDisplay = useMemo(() => {
-    if (viewType === 'day') {
+    if (viewType === 'daily') {
       return format(selectedDate, 'EEEE, MMMM d, yyyy');
     } else {
       return format(selectedDate, 'MMMM yyyy');
@@ -383,8 +331,8 @@ const ConsumptionPage = () => {
             textColor="secondary"
             indicatorColor="secondary"
           >
-            <Tab value="day" label="Daily" />
-            <Tab value="month" label="Monthly" />
+            <Tab value="daily" label="Daily" />
+            <Tab value="monthly" label="Monthly" />
           </Tabs>
           
           {/* Room/Floor filters */}
@@ -490,7 +438,7 @@ const ConsumptionPage = () => {
             alignItems="center" 
           >      
             <LocalizationProvider dateAdapter={AdapterDateFns}>
-              {viewType === 'day' ? (
+              {viewType === 'daily' ? (
                 <DatePicker
                   value={selectedDate}
                   onChange={(newDate) => {
@@ -573,7 +521,7 @@ const ConsumptionPage = () => {
             </Typography>
             <Typography variant="body1" color={colors.grey[300]}>
               {stats.highest.timestamp && (
-                viewType === 'day' 
+                viewType === 'daily' 
                   ? format(stats.highest.timestamp, 'HH:mm') 
                   : format(stats.highest.timestamp, 'MMM dd')
               )}
@@ -647,7 +595,7 @@ const ConsumptionPage = () => {
             }}
           >
             <Typography variant="h5" sx={{ mb: 2 }}>
-              {viewType === 'day' ? 'Hourly' : 'Daily'} Energy Consumption
+              {viewType === 'daily' ? 'Hourly' : 'Daily'} Energy Consumption
               {filterType !== 'none' && (
                 <Box component="span" sx={{ ml: 1, color: colors.greenAccent[400], fontSize: '0.9em' }}>
                   {filterType === 'floor' && selectedFloor ? ` - ${selectedFloor}` : ''}
@@ -742,6 +690,20 @@ const ConsumptionPage = () => {
           </Paper>
         </Box>
       </Box>
+      
+      {/* Add loading indicator */}
+      {loading && (
+        <Box display="flex" justifyContent="center" mt={3}>
+          <CircularProgress />
+        </Box>
+      )}
+      
+      {/* Display error message if needed */}
+      {error && (
+        <Box mt={3} p={2} bgcolor={colors.redAccent[500]} borderRadius={2}>
+          <Typography color="white">{error}</Typography>
+        </Box>
+      )}
     </Box>
   );
 };

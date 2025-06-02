@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   Box,
   Typography,
@@ -34,88 +34,14 @@ import {
 } from "@mui/icons-material";
 import { tokens } from "../../theme";
 import Header from "../../components/Header";
-
-// Mock data
-const mockUsers = [
-  {
-    id: 1,
-    username: "johndoe",
-    email: "john.doe@example.com",
-    phoneNumber: "0901234567",
-    address: "123 Nguyễn Văn A, Quận 1, TP.HCM",
-    role: "user",
-    isLocked: false,
-  },
-  {
-    id: 2,
-    username: "janedoe",
-    email: "jane.doe@example.com",
-    phoneNumber: "0909876543",
-    address: "456 Lê Lợi, Quận 3, TP.HCM",
-    role: "admin",
-    isLocked: false,
-  },
-  {
-    id: 3,
-    username: "robertsmith",
-    email: "robert.smith@example.com",
-    phoneNumber: "0908765432",
-    address: "789 Trần Hưng Đạo, Quận 5, TP.HCM",
-    role: "user",
-    isLocked: true,
-  },
-  {
-    id: 4,
-    username: "sarahjones",
-    email: "sarah.jones@example.com",
-    phoneNumber: "0907654321",
-    address: "101 Nguyễn Huệ, Quận 1, TP.HCM",
-    role: "user",
-    isLocked: false,
-  },
-  {
-    id: 5,
-    username: "michaelbrown",
-    email: "michael.brown@example.com",
-    phoneNumber: "0906543210",
-    address: "202 Lý Tự Trọng, Quận 1, TP.HCM",
-    role: "manager",
-    isLocked: false,
-  },
-];
-
-// Mock devices data
-const mockDevices = {
-  1: [
-    { id: 101, name: "Smart Meter XYZ", location: "Phòng khách", status: "active" },
-    { id: 102, name: "Power Monitor 2000", location: "Phòng ngủ", status: "active" },
-  ],
-  2: [
-    { id: 201, name: "EnergyTracker Pro", location: "Văn phòng", status: "inactive" },
-  ],
-  3: [
-    { id: 301, name: "SmartPlug v3", location: "Nhà bếp", status: "active" },
-    { id: 302, name: "PowerSave 5", location: "Phòng tắm", status: "active" },
-    { id: 303, name: "EcoMonitor", location: "Ban công", status: "active" },
-  ],
-  4: [],
-  5: [
-    { id: 501, name: "EnergyHub XL", location: "Phòng làm việc", status: "active" },
-  ],
-};
+import adminApi from "../../services/admin";
 
 const ManageUser = () => {
   const theme = useTheme();
   const colors = tokens(theme.palette.mode);
   
-  // Thêm index vào dữ liệu
-  const [users, setUsers] = useState(() => 
-    mockUsers.map((user, index) => ({
-      ...user,
-      index: index + 1 // Thêm STT trực tiếp vào dữ liệu
-    }))
-  );
-  const [loading, setLoading] = useState(false);
+  const [users, setUsers] = useState([]);
+  const [loading, setLoading] = useState(true);
   
   // State cho modal
   const [modalState, setModalState] = useState({
@@ -135,6 +61,29 @@ const ManageUser = () => {
     message: "",
     severity: "success",
   });
+
+  // Fetch users data
+  useEffect(() => {
+    const fetchUsers = async () => {
+      try {
+        setLoading(true);
+        const response = await adminApi.getUsersWithMonitoring();
+        const formattedUsers = response.data.map((item, index) => ({
+          ...item.user,
+          index: index + 1,
+          monitoring: item.monitoring
+        }));
+        setUsers(formattedUsers);
+      } catch (error) {
+        console.error("Error fetching users:", error);
+        showNotification("Lỗi khi tải dữ liệu người dùng", "error");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchUsers();
+  }, []);
 
   const showNotification = (message, severity = "success") => {
     setNotification({ open: true, message, severity });
@@ -156,19 +105,9 @@ const ManageUser = () => {
       open: true,
       userId,
       userData: user,
-      devices: [],
-      loadingDevices: true
+      devices: user.monitoring || [],
+      loadingDevices: false
     });
-
-    // Giả lập lấy dữ liệu thiết bị
-    setTimeout(() => {
-      const userDevices = mockDevices[userId] || [];
-      setModalState(prev => ({
-        ...prev,
-        devices: userDevices,
-        loadingDevices: false
-      }));
-    }, 700);
   };
 
   // Xử lý khóa/mở khóa tài khoản
@@ -239,6 +178,7 @@ const ManageUser = () => {
       headerName: "Email",
       minWidth: 200,
       flex: 1,
+      renderCell: (params) => params.value || "—"
     },
     {
       field: "phoneNumber",
@@ -392,15 +332,6 @@ const ManageUser = () => {
             </Box>
           </Stack>
 
-          {/* <Paper 
-            elevation={0} 
-            sx={{ 
-              backgroundColor: colors.primary[500], 
-              p: 2, 
-              mb: 3,
-              borderRadius: 1
-            }}
-          > */}
             <List sx={{ width: '100%', p: 0 }}>
               <ListItem sx={{ px: 0 }}>
                 <ListItemText
@@ -453,7 +384,6 @@ const ManageUser = () => {
                 />
               </ListItem>
             </List>
-          {/* </Paper> */}
 
             <Typography variant="h5" mb={2}>
               Danh sách thiết bị
@@ -474,17 +404,14 @@ const ManageUser = () => {
                     }}
                   >
                     <Typography variant="body1" fontWeight="bold">
-                      {device.name}
-                    </Typography>
-                    <Typography variant="body2" color={colors.grey[300]}>
-                      Vị trí: {device.location}
+                      Mã thiết bị: {device.code}
                     </Typography>
                     <Typography variant="body2">
                       Trạng thái: 
                       <Chip
-                        label={device.status === "active" ? "HOẠT ĐỘNG" : "KHÔNG HOẠT ĐỘNG"}
+                        label={device.active ? "HOẠT ĐỘNG" : "KHÔNG HOẠT ĐỘNG"}
                         size="small"
-                        color={device.status === "active" ? "success" : "error"}
+                        color={device.active ? "success" : "error"}
                         sx={{ ml: 1 }}
                       />
                     </Typography>

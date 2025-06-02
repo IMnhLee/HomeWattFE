@@ -14,9 +14,6 @@ import Signup from "./scenes/signup/signup";
 import ForgotPassword from "./scenes/login/forgotPassword";
 import ResetPassword from "./scenes/login/resetPassword";
 
-import Appliances from "./scenes/appliances";
-import Setting from "./scenes/setting";
-import Emission from "./scenes/emission";
 import EnergyDeviceList from "./scenes/devices/EnergyDeviceList";
 import FloorRoomManagement from "./scenes/devices/FloorRoomManagement";
 import MeasurementDevices from "./scenes/devices/MeasurementDevices";
@@ -101,21 +98,6 @@ function App() {
                 <Route path="/report" element={
                   <PrivateRoute roles={["user"]}>
                     <Report />
-                  </PrivateRoute>
-                } />
-                <Route path="/monitoring/app" element={
-                  <PrivateRoute roles={["user"]}>
-                    <Appliances />
-                  </PrivateRoute>
-                } />
-                <Route path="/monitoring/emission" element={
-                  <PrivateRoute roles={["user"]}>
-                    <Emission />
-                  </PrivateRoute>
-                } />
-                <Route path="/setting" element={
-                  <PrivateRoute roles={["user"]}>
-                    <Setting />
                   </PrivateRoute>
                 } />
                 <Route path="/devices/list" element={
