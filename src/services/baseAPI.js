@@ -51,68 +51,79 @@ api.interceptors.response.use(
   async (error) => {
     const originalRequest = error.config;
     
-    // Kiểm tra nếu lỗi là 401 (Unauthorized) và chưa thử refresh token
-    if (error.response && error.response.status === 401 && !originalRequest._retry &&error.response.data.message === "Invalid token") {
-      if (isRefreshing) {
-        // Nếu đang refresh, đưa request vào hàng đợi
-        return new Promise(function(resolve, reject) {
-          failedQueue.push({ resolve, reject });
-        })
-          .then(token => {
-            originalRequest.headers["Authorization"] = `Bearer ${token}`;
-            return api(originalRequest);
-          })
-          .catch(err => {
-            return Promise.reject(err);
-          });
-      }
-
-      originalRequest._retry = true;
-      isRefreshing = true;
-
-      // Lấy refresh_token từ localStorage
-      const refreshToken = localStorage.getItem("refresh_token");
-      
-      if (!refreshToken) {
-        // Không có refresh token, chuyển hướng về trang đăng nhập
+    // Kiểm tra nếu lỗi là 401 (Unauthorized)
+    if (error.response && error.response.status === 401) {
+      // Kiểm tra nếu tài khoản bị khóa
+      if (error.response.data.message === "User not found or inactive") {
         localStorage.clear();
         window.location.href = '/login';
         return Promise.reject(error);
       }
       
-      try {
-        // Gửi request để lấy token mới
-        const parsedRefreshToken = JSON.parse(refreshToken);
-        const response = await axios.post(`${API_URL}/auth/refresh`, {
-          refreshToken: parsedRefreshToken
-        });
-          console.log(response);
-        // Nếu refresh token thành công
-        if (response.data) {
-          const { accessToken, refreshToken: newRefreshToken } = response.data.data;
-          
-          // Lưu tokens mới vào localStorage
-          localStorage.setItem("access_token", JSON.stringify(accessToken));
-          localStorage.setItem("refresh_token", JSON.stringify(newRefreshToken));
-          
-          // Cập nhật header cho request gốc và request mặc định
-          api.defaults.headers.common["Authorization"] = `Bearer ${accessToken}`;
-          originalRequest.headers["Authorization"] = `Bearer ${accessToken}`;
-          
-          // Xử lý các request trong hàng đợi
-          processQueue(null, accessToken);
-          
-          // Thử lại request gốc
-          return api(originalRequest);
+      // Kiểm tra nếu token không hợp lệ và chưa thử refresh token
+      if (error.response.data.message === "Invalid token" && !originalRequest._retry) {
+        if (isRefreshing) {
+          // Nếu đang refresh, đưa request vào hàng đợi
+          return new Promise(function(resolve, reject) {
+            failedQueue.push({ resolve, reject });
+          })
+            .then(token => {
+              originalRequest.headers["Authorization"] = `Bearer ${token}`;
+              return api(originalRequest);
+            })
+            .catch(err => {
+              return Promise.reject(err);
+            });
         }
-      } catch (refreshError) {
-        // Refresh token thất bại
-        processQueue(refreshError, null);
-        localStorage.clear();
-        window.location.href = '/login';
-        return Promise.reject(refreshError);
-      } finally {
-        isRefreshing = false;
+
+        originalRequest._retry = true;
+        isRefreshing = true;
+
+        // Lấy refresh_token từ localStorage
+        const refreshToken = localStorage.getItem("refresh_token");
+        
+        if (!refreshToken) {
+          // Không có refresh token, chuyển hướng về trang đăng nhập
+          localStorage.clear();
+          window.location.href = '/login';
+          return Promise.reject(error);
+        }
+        
+        try {
+          // Gửi request để lấy token mới
+          const parsedRefreshToken = JSON.parse(refreshToken);
+          const response = await axios.post(`${API_URL}/auth/refresh`, {
+            refreshToken: parsedRefreshToken
+          });
+          console.log(response);
+          
+          // Nếu refresh token thành công
+          if (response.data) {
+            const { accessToken, refreshToken: newRefreshToken } = response.data.data;
+            
+            // Lưu tokens mới vào localStorage
+            localStorage.setItem("access_token", JSON.stringify(accessToken));
+            localStorage.setItem("refresh_token", JSON.stringify(newRefreshToken));
+            
+            // Cập nhật header cho request gốc và request mặc định
+            api.defaults.headers.common["Authorization"] = `Bearer ${accessToken}`;
+            originalRequest.headers["Authorization"] = `Bearer ${accessToken}`;
+            
+            // Xử lý các request trong hàng đợi
+            processQueue(null, accessToken);
+            
+            // Thử lại request gốc
+            return api(originalRequest);
+          }
+        } catch (refreshError) {
+          // Refresh token thất bại
+          processQueue(refreshError, null);
+          localStorage.clear();
+          window.location.href = '/login';
+          return Promise.reject(refreshError);
+        } finally {
+          isRefreshing = false;
+        }
       }
     }
     

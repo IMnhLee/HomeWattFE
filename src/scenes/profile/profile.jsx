@@ -9,15 +9,15 @@ import {
   Card,
   CardContent,
   Divider,
-  Alert,
   IconButton,
   InputAdornment,
-  Snackbar,
   List,
   ListItem,
   ListItemText,
   useMediaQuery,
 } from "@mui/material";
+import { toast, ToastContainer } from "react-toastify";
+import "react-toastify/dist/ReactToastify.css";
 import { tokens } from "../../theme";
 import Header from "../../components/Header";
 import { Visibility, VisibilityOff, Edit, Person, Email, Phone, Home } from "@mui/icons-material";
@@ -29,8 +29,6 @@ const Profile = () => {
   // Thêm media queries cho responsive
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   const isTablet = useMediaQuery(theme.breakpoints.between('sm', 'md'));
-
-  // ... các state không thay đổi
 
   // State lưu user ID
   const [userId, setUserId] = useState(null);
@@ -66,13 +64,6 @@ const Profile = () => {
     password: false,
   });
 
-  // State thông báo
-  const [notification, setNotification] = useState({
-    open: false,
-    message: "",
-    severity: "success",
-  });
-
   // State lỗi validation
   const [errors, setErrors] = useState({
     profile: {},
@@ -81,9 +72,6 @@ const Profile = () => {
 
   // Backup state for canceling edits
   const [userInfoBackup, setUserInfoBackup] = useState({});
-
-  // Các hàm xử lý giữ nguyên như cũ
-  // ...
 
   // Lấy thông tin người dùng khi component mount
   useEffect(() => {
@@ -108,7 +96,7 @@ const Profile = () => {
         }
       } catch (error) {
         console.error("Error fetching user data:", error);
-        showNotification("Không thể tải thông tin người dùng", "error");
+        toast.error("Không thể tải thông tin người dùng");
       }
     };
 
@@ -147,13 +135,17 @@ const Profile = () => {
     }
   };
 
-  // Hiển thị thông báo
+  // Hiển thị thông báo sử dụng toastify
   const showNotification = (message, severity = "success") => {
-    setNotification({
-      open: true,
-      message,
-      severity,
-    });
+    if (severity === "success") {
+      toast.success(message);
+    } else if (severity === "error") {
+      toast.error(message);
+    } else if (severity === "warning") {
+      toast.warning(message);
+    } else {
+      toast.info(message);
+    }
   };
 
   // Đóng thông báo
@@ -360,6 +352,12 @@ const Profile = () => {
                     error={Boolean(errors.profile.username)}
                     helperText={errors.profile.username}
                     size={isMobile ? "small" : "medium"}
+                    sx={{
+                    "& .MuiOutlinedInput-root": {
+                      fontSize: "16px",
+                    },
+                    "& .MuiInputLabel-root.Mui-focused": { color: colors.primary[100] },
+                  }}
                   />
                   
                   <TextField
@@ -372,6 +370,12 @@ const Profile = () => {
                     value={userInfo.email}
                     disabled
                     size={isMobile ? "small" : "medium"}
+                    sx={{
+                      "& .MuiOutlinedInput-root": {
+                        fontSize: "16px",
+                      },
+                      "& .MuiInputLabel-root.Mui-focused": { color: colors.primary[100] },
+                    }}
                   />
                   
                   <TextField
@@ -385,6 +389,12 @@ const Profile = () => {
                     error={Boolean(errors.profile.phoneNumber)}
                     helperText={errors.profile.phoneNumber}
                     size={isMobile ? "small" : "medium"}
+                    sx={{
+                      "& .MuiOutlinedInput-root": {
+                        fontSize: "16px",
+                      },
+                      "& .MuiInputLabel-root.Mui-focused": { color: colors.primary[100] },
+                    }}
                   />
                   
                   <TextField
@@ -398,6 +408,12 @@ const Profile = () => {
                     multiline
                     rows={isMobile ? 2 : 3}
                     size={isMobile ? "small" : "medium"}
+                    sx={{
+                      "& .MuiOutlinedInput-root": {
+                        fontSize: "16px",
+                      },
+                      "& .MuiInputLabel-root.Mui-focused": { color: colors.primary[100] },
+                    }}
                   />
                   
                   <Box 
@@ -572,6 +588,12 @@ const Profile = () => {
                   error={Boolean(errors.password.currentPassword)}
                   helperText={errors.password.currentPassword}
                   size={isMobile ? "small" : "medium"}
+                  sx={{
+                    "& .MuiOutlinedInput-root": {
+                      fontSize: "16px",
+                    },
+                    "& .MuiInputLabel-root.Mui-focused": { color: colors.primary[100] },
+                  }}
                   InputProps={{
                     endAdornment: (
                       <InputAdornment position="end">
@@ -608,6 +630,12 @@ const Profile = () => {
                   error={Boolean(errors.password.newPassword)}
                   helperText={errors.password.newPassword}
                   size={isMobile ? "small" : "medium"}
+                  sx={{
+                    "& .MuiOutlinedInput-root": {
+                      fontSize: "16px",
+                    },
+                    "& .MuiInputLabel-root.Mui-focused": { color: colors.primary[100] },
+                  }}
                   InputProps={{
                     endAdornment: (
                       <InputAdornment position="end">
@@ -644,6 +672,12 @@ const Profile = () => {
                   error={Boolean(errors.password.confirmPassword)}
                   helperText={errors.password.confirmPassword}
                   size={isMobile ? "small" : "medium"}
+                  sx={{
+                    "& .MuiOutlinedInput-root": {
+                      fontSize: "16px",
+                    },
+                    "& .MuiInputLabel-root.Mui-focused": { color: colors.primary[100] },
+                  }}
                   InputProps={{
                     endAdornment: (
                       <InputAdornment position="end">
@@ -692,25 +726,7 @@ const Profile = () => {
         </Box>
       </Box>
 
-      {/* Snackbar thông báo */}
-      <Snackbar
-        open={notification.open}
-        autoHideDuration={5000}
-        onClose={closeNotification}
-        anchorOrigin={{ 
-          vertical: isMobile ? "bottom" : "top", 
-          horizontal: isMobile ? "center" : "right" 
-        }}
-      >
-        <Alert 
-          onClose={closeNotification} 
-          severity={notification.severity} 
-          variant="filled"
-          sx={{ width: '100%' }}
-        >
-          {notification.message}
-        </Alert>
-      </Snackbar>
+      <ToastContainer />
     </Box>
   );
 };

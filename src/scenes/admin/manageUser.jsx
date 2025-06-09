@@ -5,8 +5,6 @@ import {
   useTheme,
   Modal,
   Button,
-  Alert,
-  Snackbar,
   Chip,
   LinearProgress,
   Divider,
@@ -35,6 +33,8 @@ import {
 import { tokens } from "../../theme";
 import Header from "../../components/Header";
 import adminApi from "../../services/admin";
+import { toast, ToastContainer } from 'react-toastify';
+import 'react-toastify/dist/ReactToastify.css';
 
 const ManageUser = () => {
   const theme = useTheme();
@@ -54,13 +54,6 @@ const ManageUser = () => {
     username: "",
     currentStatus: false
   });
-  
-  // State thông báo
-  const [notification, setNotification] = useState({
-    open: false,
-    message: "",
-    severity: "success",
-  });
 
   // Fetch users data
   useEffect(() => {
@@ -76,7 +69,7 @@ const ManageUser = () => {
         setUsers(formattedUsers);
       } catch (error) {
         console.error("Error fetching users:", error);
-        showNotification("Lỗi khi tải dữ liệu người dùng", "error");
+        toast.error("Lỗi khi tải dữ liệu người dùng");
       } finally {
         setLoading(false);
       }
@@ -84,14 +77,6 @@ const ManageUser = () => {
 
     fetchUsers();
   }, []);
-
-  const showNotification = (message, severity = "success") => {
-    setNotification({ open: true, message, severity });
-  };
-
-  const closeNotification = () => {
-    setNotification((prev) => ({ ...prev, open: false }));
-  };
 
   const closeModal = () => {
     setModalState(prev => ({ ...prev, open: false, type: null }));
@@ -111,32 +96,46 @@ const ManageUser = () => {
   };
 
   // Xử lý khóa/mở khóa tài khoản
-  const handleLockToggle = (userId, username, isLocked) => {
+  const handleLockToggle = (userId, username, isActive) => {
     setModalState({
       type: 'lock',
       open: true,
       userId,
       username,
-      currentStatus: isLocked
+      currentStatus: isActive
     });
   };
 
-  const confirmLockToggle = () => {
-    // Giả lập API call
-    const updatedUsers = users.map(user =>
-      user.id === modalState.userId
-        ? { ...user, isLocked: !modalState.currentStatus }
-        : user
-    );
-    
-    setUsers(updatedUsers);
-
-    const message = modalState.currentStatus
-      ? "Mở khóa tài khoản thành công"
-      : "Khóa tài khoản thành công";
-    
-    showNotification(message);
-    closeModal();
+  const confirmLockToggle = async () => {
+    try {
+      setLoading(true);
+      const newActiveStatus = !modalState.currentStatus;
+      const response = await adminApi.manageUserActive(modalState.userId, newActiveStatus);
+      
+      if (response.data) {
+        // Update the user in the local state
+        const updatedUsers = users.map(user =>
+          user.id === modalState.userId
+            ? { ...user, active: response.data.active }
+            : user
+        );
+        
+        setUsers(updatedUsers);
+        
+        const message = response.message || 
+          (response.data.active ? "Kích hoạt tài khoản thành công" : "Khóa tài khoản thành công");
+        
+        toast.success(message);
+        closeModal();
+      } else {
+        throw new Error(response.message || "Unknown error");
+      }
+    } catch (error) {
+      console.error('Error updating user status:', error);
+      toast.error(error.response.data.message || 'Lỗi khi cập nhật trạng thái tài khoản');
+    } finally {
+      setLoading(false);
+    }
   };
 
   // Xử lý xóa tài khoản
@@ -148,15 +147,29 @@ const ManageUser = () => {
     });
   };
 
-  const confirmDelete = () => {
-    // Giả lập API call
-    const filteredUsers = users
-      .filter(user => user.id !== modalState.userId)
-      .map((user, index) => ({ ...user, index: index + 1 })); // Cập nhật lại STT
+  const confirmDelete = async () => {
+    try {
+      setLoading(true);
+      const response = await adminApi.deleteUser(modalState.userId);
       
-    setUsers(filteredUsers);
-    showNotification("Xóa tài khoản thành công");
-    closeModal();
+      if (response.message) {
+        // Remove user from local state and update indices
+        const filteredUsers = users
+          .filter(user => user.id !== modalState.userId)
+          .map((user, index) => ({ ...user, index: index + 1 }));
+          
+        setUsers(filteredUsers);
+        toast.success(response.message);
+        closeModal();
+      } else {
+        throw new Error("Unknown error occurred");
+      }
+    } catch (error) {
+      console.error('Error deleting user:', error);
+      toast.error(error.response.data.message || 'Lỗi khi xóa tài khoản');
+    } finally {
+      setLoading(false);
+    }
   };
 
   // Định nghĩa cột
@@ -225,16 +238,16 @@ const ManageUser = () => {
       },
     },
     {
-      field: "isLocked",
+      field: "active",
       headerName: "Trạng thái",
       width: 120,
       renderCell: (params) => {
-        const isLocked = params.value;
+        const isActive = params.value;
         return (
           <Chip
-            label={isLocked ? "KHÓA" : "HOẠT ĐỘNG"}
+            label={isActive ? "HOẠT ĐỘNG" : "KHÓA"}
             size="small"
-            color={isLocked ? "error" : "success"}
+            color={isActive ? "success" : "error"}
           />
         );
       },
@@ -252,10 +265,10 @@ const ManageUser = () => {
           sx={{ color: colors.blueAccent[300] }}
         />,
         <GridActionsCellItem
-          icon={params.row.isLocked ? <LockOpen /> : <Lock />}
-          label={params.row.isLocked ? "Mở khóa" : "Khóa"}
-          onClick={() => handleLockToggle(params.row.id, params.row.username, params.row.isLocked)}
-          sx={{ color: params.row.isLocked ? colors.greenAccent[400] : colors.redAccent[300] }}
+          icon={params.row.active ? <Lock /> : <LockOpen />}
+          label={params.row.active ? "Khóa" : "Mở khóa"}
+          onClick={() => handleLockToggle(params.row.id, params.row.username, params.row.active)}
+          sx={{ color: params.row.active ? colors.redAccent[300] : colors.greenAccent[400] }}
         />,
         <GridActionsCellItem
           icon={<Delete />}
@@ -374,13 +387,11 @@ const ManageUser = () => {
               <ListItem sx={{ px: 0 }}>
                 <ListItemText
                   primary="Trạng thái"
-                  secondary={
-                    <Chip
-                      label={modalState.userData.isLocked ? "TÀI KHOẢN BỊ KHÓA" : "ĐANG HOẠT ĐỘNG"}
-                      size="small"
-                      color={modalState.userData.isLocked ? "error" : "success"}
-                    />
-                  }
+                />
+                <Chip
+                  label={modalState.userData.active ? "ĐANG HOẠT ĐỘNG" : "TÀI KHOẢN BỊ KHÓA"}
+                  size="small"
+                  color={modalState.userData.active ? "success" : "error"}
                 />
               </ListItem>
             </List>
@@ -399,22 +410,23 @@ const ManageUser = () => {
                     sx={{
                       p: 2,
                       mb: 1,
-                      bgcolor: colors.primary[700],
+                      bgcolor: colors.primary[500],
                       borderRadius: 1,
                     }}
                   >
                     <Typography variant="body1" fontWeight="bold">
                       Mã thiết bị: {device.code}
                     </Typography>
-                    <Typography variant="body2">
-                      Trạng thái: 
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                      <Typography variant="body2">
+                        Trạng thái:
+                      </Typography>
                       <Chip
                         label={device.active ? "HOẠT ĐỘNG" : "KHÔNG HOẠT ĐỘNG"}
                         size="small"
                         color={device.active ? "success" : "error"}
-                        sx={{ ml: 1 }}
                       />
-                    </Typography>
+                    </Box>
                   </Box>
                 ))}
               </Box>
@@ -440,10 +452,10 @@ const ManageUser = () => {
     <Modal open={modalState.open} onClose={closeModal}>
       <Box sx={modalStyle}>
         <Typography variant="h4" mb={2}>
-          {modalState.currentStatus ? "Mở khóa tài khoản" : "Khóa tài khoản"}
+          {modalState.currentStatus ? "Khóa tài khoản" : "Kích hoạt tài khoản"}
         </Typography>
         <Typography variant="body1" mb={3}>
-          {`Bạn có chắc chắn muốn ${modalState.currentStatus ? "mở khóa" : "khóa"} tài khoản của người dùng "${modalState.username}" không?`}
+          {`Bạn có chắc chắn muốn ${modalState.currentStatus ? "khóa" : "kích hoạt"} tài khoản của người dùng "${modalState.username}" không?`}
         </Typography>
         <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 1 }}>
           <Button onClick={closeModal} color="inherit">
@@ -451,11 +463,12 @@ const ManageUser = () => {
           </Button>
           <Button
             onClick={confirmLockToggle}
-            color={modalState.currentStatus ? "success" : "error"}
+            color={modalState.currentStatus ? "error" : "success"}
             variant="contained"
             autoFocus
+            disabled={loading}
           >
-            {modalState.currentStatus ? "Mở khóa" : "Khóa"}
+            {modalState.currentStatus ? "Khóa" : "Kích hoạt"}
           </Button>
         </Box>
       </Box>
@@ -473,7 +486,7 @@ const ManageUser = () => {
           Bạn có chắc chắn muốn xóa tài khoản người dùng này không? Hành động này không thể hoàn tác.
         </Typography>
         <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 1 }}>
-          <Button onClick={closeModal} color="inherit">
+          <Button onClick={closeModal} color="inherit" disabled={loading}>
             Hủy
           </Button>
           <Button 
@@ -481,6 +494,7 @@ const ManageUser = () => {
             color="error" 
             variant="contained" 
             autoFocus
+            disabled={loading}
           >
             Xóa
           </Button>
@@ -569,22 +583,7 @@ const ManageUser = () => {
       </Box>
 
       {renderModal()}
-
-      <Snackbar
-        open={notification.open}
-        autoHideDuration={3000}
-        onClose={closeNotification}
-        anchorOrigin={{ vertical: "top", horizontal: "right" }}
-      >
-        <Alert
-          onClose={closeNotification}
-          severity={notification.severity}
-          variant="filled"
-          sx={{ width: "100%" }}
-        >
-          {notification.message}
-        </Alert>
-      </Snackbar>
+      <ToastContainer />
     </Box>
   );
 };

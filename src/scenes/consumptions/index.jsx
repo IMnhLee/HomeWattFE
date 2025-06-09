@@ -30,9 +30,10 @@ import {
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
 import { LocalizationProvider, DatePicker } from '@mui/x-date-pickers';
 import { format, addDays, subDays, startOfMonth, endOfMonth, addMonths, subMonths } from 'date-fns';
+import { toast, ToastContainer } from "react-toastify";
+import "react-toastify/dist/ReactToastify.css";
 import { tokens } from "../../theme";
 import Header from "../../components/Header";
-import BarMixedLineChart from "../../components/BarMixedLineChart";
 import StackBarChart from "../../components/StackBarChart";
 import energyApi from "../../services/energy.js"; // Import the energy API
 
@@ -95,9 +96,8 @@ const ConsumptionPage = () => {
   
   // API data states
   const [consumptionData, setConsumptionData] = useState([]);
-  const [devices, setDevices] = useState([]); // API-provided devices
+  const [devices, setDevices] = useState([]);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(null);
   
   // Fixed energy unit (removed selector)
   const energyUnit = "kWh";
@@ -136,11 +136,10 @@ const ConsumptionPage = () => {
     return devices;
   }, [filterType, selectedFloor, selectedRoom, devices]);
   
-  // Load data from API when date or view type changes - update to use 'daily' instead of 'day'
+  // Load data from API when date or view type changes
   useEffect(() => {
     const fetchData = async () => {
       setLoading(true);
-      setError(null);
       
       try {
         const response = await energyApi.getConsumptionByDate(viewType, selectedDate);
@@ -154,7 +153,7 @@ const ConsumptionPage = () => {
         setDevices(extractedDevices);
       } catch (err) {
         console.error("Error fetching consumption data:", err);
-        setError("Failed to load energy consumption data. Please try again later.");
+        toast.error("Failed to load energy consumption data. Please try again later.");
       } finally {
         setLoading(false);
       }
@@ -314,8 +313,8 @@ const ConsumptionPage = () => {
   
   return (
     <Box m="20px">
-      <Header title="Energy Consumption" subtitle="Analyze your device energy usage" />
-      
+      <Header title="Điện năng tiêu thụ" subtitle="Phân tích mức tiêu thụ năng lượng của thiết bị" />
+
       {/* Responsive control section */}
       <Box 
         display="grid" 
@@ -331,8 +330,8 @@ const ConsumptionPage = () => {
             textColor="secondary"
             indicatorColor="secondary"
           >
-            <Tab value="daily" label="Daily" />
-            <Tab value="monthly" label="Monthly" />
+            <Tab value="daily" label="Theo ngày" />
+            <Tab value="monthly" label="Theo tháng" />
           </Tabs>
           
           {/* Room/Floor filters */}
@@ -352,11 +351,11 @@ const ConsumptionPage = () => {
                 }
               }}
             >
-              <InputLabel id="room-filter-label">Room</InputLabel>
+              <InputLabel id="room-filter-label" sx={{"&.Mui-focused": {color: colors.primary[100]}}}>Phòng</InputLabel>
               <Select
                 labelId="room-filter-label"
                 value={selectedRoom}
-                label="Room"
+                label="Phòng"
                 onChange={(e) => {
                   if (e.target.value) {
                     setFilterType('room');
@@ -391,11 +390,11 @@ const ConsumptionPage = () => {
                 }
               }}
             >
-              <InputLabel id="floor-filter-label">Floor</InputLabel>
+              <InputLabel id="floor-filter-label" sx={{"&.Mui-focused": {color: colors.primary[100]}}}>Tầng</InputLabel>
               <Select
                 labelId="floor-filter-label"
                 value={selectedFloor}
-                label="Floor"
+                label="Tầng"
                 onChange={(e) => {
                   if (e.target.value) {
                     setFilterType('floor');
@@ -488,7 +487,7 @@ const ConsumptionPage = () => {
             }}
           >
             <Stack direction="row" justifyContent="space-between" alignItems="center">
-              <Typography variant="h5">Total Consumption</Typography>
+              <Typography variant="h5">Tổng điện năng tiêu thụ</Typography>
               <Tooltip title="Total energy consumed during the selected period">
                 <InfoOutlined fontSize="small" />
               </Tooltip>
@@ -511,8 +510,8 @@ const ConsumptionPage = () => {
             }}
           >
             <Stack direction="row" justifyContent="space-between" alignItems="center">
-              <Typography variant="h5">Highest Consumption</Typography>
-              <Tooltip title={`Period with highest energy consumption`}>
+              <Typography variant="h5">Tiêu thụ nhiều nhất</Typography>
+              <Tooltip title={`Thời điểm có mức tiêu thụ cao nhất trong khoảng thời gian đã chọn`}>
                 <InfoOutlined fontSize="small" />
               </Tooltip>
             </Stack>
@@ -543,8 +542,8 @@ const ConsumptionPage = () => {
             }}
           >
             <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 1 }}>
-              <Typography variant="h5">Top Consumer</Typography>
-              <Tooltip title="Device with highest energy consumption">
+              <Typography variant="h5">Thiết bị tiêu thụ nhiều nhất</Typography>
+              <Tooltip title="Thiết bị tiêu thụ nhiều nhất trong khoảng thời gian đã chọn">
                 <InfoOutlined fontSize="small" />
               </Tooltip>
             </Stack>
@@ -595,7 +594,7 @@ const ConsumptionPage = () => {
             }}
           >
             <Typography variant="h5" sx={{ mb: 2 }}>
-              {viewType === 'daily' ? 'Hourly' : 'Daily'} Energy Consumption
+              Điện năng tiêu thụ theo {viewType === 'daily' ? 'giờ' : 'ngày'}
               {filterType !== 'none' && (
                 <Box component="span" sx={{ ml: 1, color: colors.greenAccent[400], fontSize: '0.9em' }}>
                   {filterType === 'floor' && selectedFloor ? ` - ${selectedFloor}` : ''}
@@ -625,18 +624,18 @@ const ConsumptionPage = () => {
           >
             <Typography variant="h5" sx={{ mb: 2 }}>
               {filterType === 'none' 
-                ? 'Consumption by Device' 
+                ? 'Các thiết bị tiêu thụ năng lượng' 
                 : filterType === 'floor' && selectedFloor 
-                  ? `Devices on ${selectedFloor}` 
+                  ? `Các thiết bị ở ${selectedFloor}` 
                   : filterType === 'room' && selectedRoom 
-                    ? `Devices in ${selectedRoom}` 
-                    : 'Consumption by Device'}
+                    ? `Các thiết bị trong ${selectedRoom}` 
+                    : 'Các thiết bị tiêu thụ năng lượng'}
             </Typography>
             
             {filterType !== 'none' && stats.deviceBreakdown.length > 0 && (
               <Box sx={{ mb: 2, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                 <Typography variant="body2" color={colors.grey[300]}>
-                  Showing {stats.deviceBreakdown.length} {stats.deviceBreakdown.length === 1 ? 'device' : 'devices'}
+                  Hiển thị {stats.deviceBreakdown.length} {stats.deviceBreakdown.length === 1 ? 'thiết bị' : 'thiết bị'}
                 </Typography>
                 <Typography variant="body2" color={colors.grey[300]}>
                   {stats.total.toFixed(2)} {energyUnit} total
@@ -651,7 +650,7 @@ const ConsumptionPage = () => {
                   key={device.id}
                   sx={{ 
                     p: 2, 
-                    bgcolor: colors.primary[700],
+                    bgcolor: colors.primary[500],
                     borderLeft: `4px solid ${device.color}`
                   }}
                 >
@@ -697,13 +696,7 @@ const ConsumptionPage = () => {
           <CircularProgress />
         </Box>
       )}
-      
-      {/* Display error message if needed */}
-      {error && (
-        <Box mt={3} p={2} bgcolor={colors.redAccent[500]} borderRadius={2}>
-          <Typography color="white">{error}</Typography>
-        </Box>
-      )}
+      <ToastContainer />
     </Box>
   );
 };

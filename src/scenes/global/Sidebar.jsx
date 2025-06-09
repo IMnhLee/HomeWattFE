@@ -123,13 +123,13 @@ const ProSidebar = ({
         // { title: "report", to: "/report", icon: <QueryStatsOutlinedIcon /> },
       ],
     },
-    {
-      title: "User",
-      items: [
-        { title: "Manage Team", to: "/team", icon: <PeopleOutlinedIcon /> },
-        { title: "Contacts Information", to: "/faq", icon: <ContactsOutlinedIcon /> },
-      ],
-    },
+    // {
+    //   title: "User",
+    //   items: [
+    //     { title: "Manage Team", to: "/team", icon: <PeopleOutlinedIcon /> },
+    //     { title: "Contacts Information", to: "/faq", icon: <ContactsOutlinedIcon /> },
+    //   ],
+    // },
     // {
     //   title: "Admin",
     //   role: ["admin", "superadmin"],

@@ -10,6 +10,7 @@ import EditIcon from "@mui/icons-material/Edit";
 import DeleteIcon from "@mui/icons-material/Delete";
 import MoreVertIcon from "@mui/icons-material/MoreVert";
 import floorApi from "../../services/floor";
+import lineApi from "../../services/line"; // Thêm import này nếu chưa có
 
 const FloorRoomManagement = () => {
   const theme = useTheme();
@@ -48,6 +49,7 @@ const FloorRoomManagement = () => {
             devices: room.lines?.map(line => ({
               id: line.id,
               name: line.name,
+              monitoringId: line.monitoringId,
               monitoringCode: line.monitoringCode,
               line: line.code
             })) || []
@@ -255,19 +257,46 @@ const FloorRoomManagement = () => {
     }
   };
   
-  const handleRemoveDevice = (floorId, roomId, deviceId) => {
-    setFloors(floors.map(floor => 
-      floor.id === floorId 
-        ? { 
-            ...floor, 
-            rooms: floor.rooms.map(room => 
-              room.id === roomId 
-                ? { ...room, devices: room.devices.filter(device => device.id !== deviceId) }
-                : room
-            ) 
-          } 
-        : floor
-    ));
+  const handleRemoveDevice = async (floorId, roomId, deviceId) => {
+    try {
+      // Find the device to get its details
+      const floor = floors.find(f => f.id === floorId);
+      const room = floor?.rooms.find(r => r.id === roomId);
+      const device = room?.devices.find(d => d.id === deviceId);
+      
+      if (device) {
+        // Call API to update line with roomId = null
+        const requestBody = {
+          lineId: device.id,
+          monitoringId: device.monitoringId,
+          name: device.name,
+          roomId: null
+        };
+        
+        const response = await lineApi.editLine(requestBody);
+        
+        if (response.message === "Update line success") {
+          console.log("Line updated successfully:", response.data);
+          
+          // Update local state after successful API call
+          setFloors(floors.map(floor => 
+            floor.id === floorId 
+              ? { 
+                  ...floor, 
+                  rooms: floor.rooms.map(room => 
+                    room.id === roomId 
+                      ? { ...room, devices: room.devices.filter(device => device.id !== deviceId) }
+                      : room
+                  ) 
+                } 
+              : floor
+          ));
+        }
+      }
+    } catch (error) {
+      console.error("Error removing device from room:", error);
+      // You could add error handling UI here
+    }
   };
 
   // Common styles
@@ -350,7 +379,7 @@ const FloorRoomManagement = () => {
           </Box>
           
           <Typography variant="h6" color={colors.grey[300]} mb={1}>
-            Devices: {room.devices.length}
+            Thiết bị: {room.devices.length}
           </Typography>
           
           <List dense sx={{ mt: 1 }}>
@@ -376,7 +405,7 @@ const FloorRoomManagement = () => {
           
           <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
             <Typography variant="h5" color={colors.grey[300]}>
-              Rooms ({floor.rooms.length})
+              {floor.rooms.length} Phòng
             </Typography>
             <Button
               variant="outlined"
@@ -386,7 +415,7 @@ const FloorRoomManagement = () => {
               onClick={() => openModal('room', null, floor)}
               sx={{ fontSize: '1rem' }}
             >
-              Add Room
+              Thêm phòng
             </Button>
           </Box>
           
@@ -419,8 +448,8 @@ const FloorRoomManagement = () => {
   return (
     <Box m="20px">
       <Header 
-        title="Floors & Rooms" 
-        subtitle="Manage your home layout and connected devices" 
+        title="Quản lý Tầng và Phòng" 
+        subtitle="Quản lý bố cục nhà của bạn và các thiết bị kết nối" 
       />
       
       <Box display="flex" justifyContent="flex-end" mb={3}>
@@ -432,7 +461,7 @@ const FloorRoomManagement = () => {
           size="large"
           sx={{ fontSize: '1.1rem', py: 1 }}
         >
-          Add Floor
+          Thêm tầng
         </Button>
       </Box>
       
@@ -443,7 +472,7 @@ const FloorRoomManagement = () => {
         </Typography>
       ) : floors.length === 0 ? (
         <Typography variant="h5" textAlign="center" my={4}>
-          No floors found. Add your first floor to get started.
+          Không có tầng nào hiện có. Hãy thêm một tầng mới.
         </Typography>
       ) : (
         /* Floor List */
@@ -470,13 +499,13 @@ const FloorRoomManagement = () => {
           }}
           sx={{ fontSize: '1.1rem', py: 1.5 }}
         >
-          <EditIcon fontSize="medium" sx={{ mr: 1 }} /> Edit
+          <EditIcon fontSize="medium" sx={{ mr: 1 }} /> Sửa
         </MenuItem>
         <MenuItem 
           onClick={() => openDeleteConfirmation(menuState.type, menuState.item)}
           sx={{ fontSize: '1.1rem', py: 1.5 }}
         >
-          <DeleteIcon fontSize="medium" sx={{ mr: 1 }} /> Delete
+          <DeleteIcon fontSize="medium" sx={{ mr: 1 }} /> Xóa
         </MenuItem>
       </Menu>
       
@@ -489,14 +518,14 @@ const FloorRoomManagement = () => {
         <Box sx={modalStyle}>
           <Typography id="modal-title" variant="h4" sx={{ mb: 3, fontSize: "22px" }}>
             {modalState.isEditing 
-              ? `Edit ${modalState.type === 'floor' ? 'Floor' : 'Room'}` 
-              : `Add New ${modalState.type === 'floor' ? 'Floor' : 'Room'}`}
+              ? `Chỉnh sửa ${modalState.type === 'floor' ? 'Tầng' : 'Phòng'}` 
+              : `Thêm ${modalState.type === 'floor' ? 'Tầng' : 'Phòng'}`}
           </Typography>
           
           <TextField
             autoFocus
             margin="normal"
-            label={`${modalState.type === 'floor' ? 'Floor' : 'Room'} Name`}
+            label={`Tên ${modalState.type === 'floor' ? 'Tầng' : 'Phòng'} `}
             fullWidth
             variant="outlined"
             value={modalState.name}
@@ -538,22 +567,22 @@ const FloorRoomManagement = () => {
       >
         <Box sx={modalStyle}>
           <Typography id="delete-confirm-title" variant="h4" sx={{ mb: 3, fontSize: "22px" }}>
-            Confirm Deletion
+            Xác nhận xóa
           </Typography>
           
           <Typography variant="body1" sx={{ mb: 3, fontSize: "16px" }}>
-            {confirmDelete.type === 'floor' 
-              ? `Are you sure you want to delete floor "${confirmDelete.item?.name}"? This will also delete all rooms within this floor.`
-              : `Are you sure you want to delete room "${confirmDelete.item?.room?.name}"?`}
+            {confirmDelete.type === 'floor'
+              ? `Bạn có chắc chắn muốn xóa tầng "${confirmDelete.item?.name}"? Điều này cũng sẽ xóa tất cả các phòng trong tầng này.`
+              : `Bạn có chắc chắn muốn xóa phòng "${confirmDelete.item?.room?.name}"?`}
           </Typography>
-          
+
           {/* Action buttons */}
           <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: 3, gap: 1 }}>
             <Button 
               onClick={closeDeleteConfirmation} 
               sx={{ fontSize: "16px", color: colors.primary[100] }}
             >
-              Cancel
+              Hủy
             </Button>
             <Button
               onClick={confirmDeleteItem}
@@ -561,7 +590,7 @@ const FloorRoomManagement = () => {
               variant="contained"
               sx={{ fontSize: "16px" }}
             >
-              Delete
+              Xóa
             </Button>
           </Box>
         </Box>

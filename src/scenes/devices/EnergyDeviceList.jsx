@@ -4,10 +4,7 @@ import {
   Button,
   IconButton,
   useTheme,
-  Dialog,
-  DialogActions,
-  DialogContent,
-  DialogTitle,
+  Modal,
   TextField,
   Tooltip,
   Select,
@@ -16,7 +13,8 @@ import {
   InputLabel,
   FormHelperText,
   Typography,
-  DialogContentText
+  Paper,
+  CircularProgress
 } from "@mui/material";
 import { DataGrid, GridToolbar } from "@mui/x-data-grid";
 import { tokens } from "../../theme";
@@ -26,10 +24,25 @@ import DeleteIcon from "@mui/icons-material/Delete";
 import Header from "../../components/Header";
 import monitoringApi from "../../services/monitoring";
 import floorApi from "../../services/floor";
+import lineApi from "../../services/line"; // Thêm import này
 
 const EnergyDeviceList = () => {
   const theme = useTheme();
   const colors = tokens(theme.palette.mode);
+
+  // Define modal style
+  const modalStyle = {
+    position: 'absolute',
+    top: '50%',
+    left: '50%',
+    transform: 'translate(-50%, -50%)',
+    width: 500,
+    bgcolor: colors.primary[400],
+    border: '2px solid ' + colors.primary[500],
+    boxShadow: 24,
+    borderRadius: 1,
+    p: 4,
+  };
 
   // Available floors and rooms (would come from API)
   const [availableFloors, setAvailableFloors] = useState([]);
@@ -144,8 +157,8 @@ const fetchMonitoringData = async () => {
     return availableRooms.filter(room => room.floorId === floorId);
   };
 
-  // Dialog state
-  const [dialogOpen, setDialogOpen] = useState(false);
+  // Modal state
+  const [modalOpen, setModalOpen] = useState(false);
   const [editingDevice, setEditingDevice] = useState(null);
   const [newDevice, setNewDevice] = useState({
     name: "",
@@ -153,14 +166,14 @@ const fetchMonitoringData = async () => {
     roomId: "",
   });
   
-  // Confirmation dialog state
+  // Confirmation modal state
   const [confirmDelete, setConfirmDelete] = useState({
     open: false,
     device: null
   });
 
-  // Open dialog for adding/editing
-  const openDeviceDialog = (device = null) => {
+  // Open modal for adding/editing
+  const openDeviceModal = (device = null) => {
     if (device) {
       // Find the floor ID based on the floor name
       const floorId = availableFloors.find(f => f.name === device.floor)?.id || "";
@@ -172,6 +185,7 @@ const fetchMonitoringData = async () => {
         name: device.name,
         floorId: floorId,
         roomId: roomId,
+        lineCode: device.lineCode || "",
       });
     } else {
       setEditingDevice(null);
@@ -179,11 +193,12 @@ const fetchMonitoringData = async () => {
         name: "",
         floorId: "",
         roomId: "",
+        lineCode: "",
       });
     }
-    setDialogOpen(true);
+    setModalOpen(true);
   };
-  
+
   // Handle form change
   const handleInputChange = (e) => {
     const { name, value } = e.target;
@@ -204,11 +219,27 @@ const fetchMonitoringData = async () => {
   // Save device 
   const handleSaveDevice = async () => {
     try {
-      // Implementation for saving device would go here
-      // This would involve calling the appropriate API methods
+      if (editingDevice && editingDevice.lineId) {
+        // Editing existing line
+        const requestBody = {
+          lineId: editingDevice.lineId,
+          monitoringId: editingDevice.monitorId,
+          name: newDevice.name,
+          roomId: newDevice.roomId || null
+        };
+        
+        const response = await lineApi.editLine(requestBody);
+        
+        if (response.message === "Update line success") {
+          console.log("Line updated successfully:", response.data);
+        }
+      } else {
+        // Adding new device - would need implementation based on your add API
+        console.log("Adding new device functionality needs to be implemented");
+      }
       
-      // Close the dialog and refresh data
-      setDialogOpen(false);
+      // Close the modal and refresh data
+      setModalOpen(false);
       fetchMonitoringData();
     } catch (error) {
       console.error("Error saving device:", error);
@@ -235,8 +266,22 @@ const fetchMonitoringData = async () => {
   const confirmDeleteDevice = async () => {
     try {
       if (confirmDelete.device) {
-        // Call API to delete the device
-        await monitoringApi.removeMonitoring(confirmDelete.device.monitorId);
+        if (confirmDelete.device.lineId) {
+          // Disconnect line if it's a line device
+          const requestBody = {
+            monitoringId: confirmDelete.device.monitorId,
+            lineId: confirmDelete.device.lineId
+          };
+          
+          const response = await lineApi.disconnectLine(requestBody);
+          
+          if (response.message === "Disconnect line success") {
+            console.log("Line disconnected successfully:", response.data);
+          }
+        } else {
+          // Delete monitoring device if it has no line
+          await monitoringApi.removeMonitoring(confirmDelete.device.monitorId);
+        }
         
         // Refresh data after deletion
         fetchMonitoringData();
@@ -248,7 +293,7 @@ const fetchMonitoringData = async () => {
     }
   };
 
-  // DataGrid columns definition
+  // DataGrid columns definition 
   const columns = [
     { 
       field: 'orderNumber', 
@@ -262,14 +307,14 @@ const fetchMonitoringData = async () => {
     },
     { 
       field: 'name', 
-      headerName: 'Name', 
+      headerName: 'Tên Thiết Bị', 
       flex: 1, 
       minWidth: 150,
       filterable: true 
     },
     { 
       field: 'monitoringCode', 
-      headerName: 'Monitoring Code', 
+      headerName: 'Mã Thiết Bị Đo', 
       flex: 1,
       minWidth: 150,
       filterable: true,
@@ -277,7 +322,7 @@ const fetchMonitoringData = async () => {
     },
     {
       field: 'lineCode',
-      headerName: 'Line',
+      headerName: 'Mã Lộ',
       flex: 1,
       minWidth: 150,
       filterable: true,
@@ -285,7 +330,7 @@ const fetchMonitoringData = async () => {
     },
     { 
       field: 'floor', 
-      headerName: 'Floor', 
+      headerName: 'Tầng', 
       flex: 1,
       minWidth: 120,
       filterable: true,
@@ -293,7 +338,7 @@ const fetchMonitoringData = async () => {
     },
     { 
       field: 'room', 
-      headerName: 'Room', 
+      headerName: 'Phòng', 
       flex: 1,
       minWidth: 150,
       filterable: true,
@@ -301,27 +346,45 @@ const fetchMonitoringData = async () => {
     },
     {
       field: 'actions',
-      headerName: 'Actions',
+      headerName: 'Hành động',
       sortable: false,
       filterable: false,
       width: 120,
       renderCell: (params) => {
+        // Only show edit/delete for lines, not for monitoring devices without lines
+        const isLine = params.row.lineId && params.row.lineId !== "";
+        
         return (
           <Box>
-            <Tooltip title="Edit">
-              <IconButton size="small" onClick={() => openDeviceDialog(params.row)}>
-                <EditIcon fontSize="small" />
-              </IconButton>
-            </Tooltip>
-            <Tooltip title="Delete">
-              <IconButton 
-                size="small" 
-                onClick={() => openDeleteConfirmation(params.row)}
-                color="error"
-              >
-                <DeleteIcon fontSize="small" />
-              </IconButton>
-            </Tooltip>
+            {isLine && (
+              <>
+                <Tooltip title="Edit Line">
+                  <IconButton size="small" onClick={() => openDeviceModal(params.row)}>
+                    <EditIcon fontSize="small" />
+                  </IconButton>
+                </Tooltip>
+                <Tooltip title="Disconnect Line">
+                  <IconButton 
+                    size="small" 
+                    onClick={() => openDeleteConfirmation(params.row)}
+                    color="error"
+                  >
+                    <DeleteIcon fontSize="small" />
+                  </IconButton>
+                </Tooltip>
+              </>
+            )}
+            {!isLine && (
+              <Tooltip title="Delete Monitoring Device">
+                <IconButton 
+                  size="small" 
+                  onClick={() => openDeleteConfirmation(params.row)}
+                  color="error"
+                >
+                  <DeleteIcon fontSize="small" />
+                </IconButton>
+              </Tooltip>
+            )}
           </Box>
         );
       }
@@ -330,7 +393,7 @@ const fetchMonitoringData = async () => {
 
   return (
     <Box m="20px">
-      <Header title="Energy Consuming Devices" subtitle="Manage your energy consuming devices" />
+      <Header title="Thiết bị tiêu thụ" subtitle="Quản lý thiết bị tiêu thụ điện năng" />
 
       {/* DataGrid with built-in filtering */}
       <Box
@@ -393,23 +456,40 @@ const fetchMonitoringData = async () => {
         </Box>
       </Box>
 
-      {/* Add/Edit Device Dialog */}
-      <Dialog 
-        open={dialogOpen} 
-        onClose={() => setDialogOpen(false)}
-        maxWidth="sm"
-        fullWidth
+      {/* Add/Edit Device Modal */}
+      <Modal 
+        open={modalOpen} 
+        onClose={() => setModalOpen(false)}
+        aria-labelledby="device-modal-title"
       >
-        <DialogTitle>
-          {editingDevice ? "Edit Device" : "Add New Device"}
-        </DialogTitle>
-        <DialogContent>
+        <Box sx={modalStyle}>
+          {/* Title */}
+          <Typography id="device-modal-title" variant="h4" sx={{ mb: 3, fontSize: "22px" }}>
+            {editingDevice ? "Chỉnh sửa thiết bị" : "Thêm thiết bị mới"}
+          </Typography>
+          
+          {/* Content */}
           <Box component="form" sx={{ mt: 1 }}>
             <TextField
               margin="normal"
               required
               fullWidth
-              label="Device Name"
+              label="Mã lộ điện"
+              name="lineCode"
+              value={newDevice.lineCode || ""}
+              disabled={true}
+              sx={{
+                "& .MuiOutlinedInput-root": {
+                  fontSize: "16px",
+                },
+                "& .MuiInputLabel-root.Mui-focused": { color: colors.primary[100] },
+              }}
+            />
+            <TextField
+              margin="normal"
+              required
+              fullWidth
+              label="Tên thiết bị"
               name="name"
               value={newDevice.name}
               sx={{
@@ -423,13 +503,13 @@ const fetchMonitoringData = async () => {
             
             {/* Floor dropdown */}
             <FormControl fullWidth margin="normal">
-              <InputLabel id="floor-select-label" sx={{ fontSize: "16px", "&.Mui-focused": {color: colors.primary[100]}}}>Floor</InputLabel>
+              <InputLabel id="floor-select-label" sx={{ fontSize: "16px", "&.Mui-focused": {color: colors.primary[100]}}}>Tầng</InputLabel>
               <Select
                 labelId="floor-select-label"
                 id="floor-select"
                 name="floorId"
                 value={newDevice.floorId}
-                label="Floor"
+                label="Tầng"
                 onChange={handleInputChange}
               >
                 <MenuItem value="">
@@ -439,18 +519,18 @@ const fetchMonitoringData = async () => {
                   <MenuItem key={floor.id} value={floor.id}>{floor.name}</MenuItem>
                 ))}
               </Select>
-              <FormHelperText>Select a floor or leave empty</FormHelperText>
+              <FormHelperText>Chọn tầng hoặc để trống</FormHelperText>
             </FormControl>
             
             {/* Room dropdown (filtered by selected floor) */}
             <FormControl fullWidth margin="normal" disabled={!newDevice.floorId}>
-              <InputLabel id="room-select-label" sx={{ fontSize: "16px", "&.Mui-focused": {color: colors.primary[100]}}}>Room</InputLabel>
+              <InputLabel id="room-select-label" sx={{ fontSize: "16px", "&.Mui-focused": {color: colors.primary[100]}}}>Phòng</InputLabel>
               <Select
                 labelId="room-select-label"
                 id="room-select"
                 name="roomId"
                 value={newDevice.roomId}
-                label="Room"
+                label="Phòng"
                 onChange={handleInputChange}
               >
                 <MenuItem value="">
@@ -462,49 +542,72 @@ const fetchMonitoringData = async () => {
               </Select>
               <FormHelperText>
                 {newDevice.floorId 
-                  ? "Select a room or leave empty" 
-                  : "Select a floor first"}
+                  ? "Chọn phòng hoặc để trống" 
+                  : "Chọn tầng trước"}
               </FormHelperText>
             </FormControl>
           </Box>
-        </DialogContent>
-        <DialogActions>
-          <Button sx={{color: colors.grey[100]}} onClick={() => setDialogOpen(false)}>Cancel</Button>
-          <Button 
-            onClick={handleSaveDevice}
-            disabled={!newDevice.name}
-            sx={{
-              color: colors.grey[100],
-            }}
-          >
-            Save
-          </Button>
-        </DialogActions>
-      </Dialog>
+          
+          {/* Actions */}
+          <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: 3, gap: 1 }}>
+            <Button 
+              sx={{color: colors.grey[100], fontSize: "16px"}} 
+              onClick={() => setModalOpen(false)}
+            >
+              Cancel
+            </Button>
+            <Button 
+              onClick={handleSaveDevice}
+              disabled={!newDevice.name}
+              color="secondary"
+              variant="contained"
+              sx={{ fontSize: "16px" }}
+            >
+              Save
+            </Button>
+          </Box>
+        </Box>
+      </Modal>
 
-      {/* Delete Confirmation Dialog */}
-      <Dialog
+      {/* Delete Confirmation Modal */}
+      <Modal
         open={confirmDelete.open}
         onClose={closeDeleteConfirmation}
+        aria-labelledby="delete-modal-title"
       >
-        <DialogTitle>
-          Confirm Deletion
-        </DialogTitle>
-        <DialogContent>
-          <DialogContentText>
-            Are you sure you want to delete device "{confirmDelete.device?.name}"? 
-            This will remove the monitoring device and all its associated lines.
-          </DialogContentText>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={closeDeleteConfirmation} sx={{color: colors.grey[100]}}>
-            Cancel
-          </Button>
-          <Button onClick={confirmDeleteDevice} color="error">
-            Delete
-          </Button>
-        </DialogActions>
-      </Dialog>
+        <Box sx={modalStyle}>
+          {/* Title */}
+          <Typography id="delete-modal-title" variant="h4" sx={{ mb: 3, fontSize: "22px" }}>
+            Confirm {confirmDelete.device?.lineId ? "Disconnect" : "Deletion"}
+          </Typography>
+          
+          {/* Content */}
+          <Typography sx={{ mb: 3, fontSize: "16px" }}>
+            {confirmDelete.device?.lineId 
+              ? `Bạn có chắc ngắt kết nối line "${confirmDelete.device?.name}"?`
+              : `Bạn có chắc xóa thiết bị "${confirmDelete.device?.name}"? Điều này sẽ xóa thiết bị giám sát và tất cả các dòng liên quan.`
+            }
+          </Typography>
+          
+          {/* Actions */}
+          <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 1 }}>
+            <Button 
+              onClick={closeDeleteConfirmation} 
+              sx={{color: colors.grey[100], fontSize: "16px"}}
+            >
+              Hủy
+            </Button>
+            <Button 
+              onClick={confirmDeleteDevice} 
+              color="error"
+              variant="contained"
+              sx={{ fontSize: "16px" }}
+            >
+              {confirmDelete.device?.lineId ? "Ngắt kết nối" : "Xóa"}
+            </Button>
+          </Box>
+        </Box>
+      </Modal>
     </Box>
   );
 };

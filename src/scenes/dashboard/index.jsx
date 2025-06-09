@@ -245,7 +245,7 @@ const Dashboard = () => {
   return (
     <Box m="20px">
       {/* HEADER */}
-      <Header title="Dashboard" subtitle="Energy Consumption Overview" />
+      <Header title="Dashboard" subtitle="Tổng quan về tiêu thụ năng lượng" />
 
       {/* GRID & CHARTS */}
       <Box
@@ -373,10 +373,10 @@ const Dashboard = () => {
               }}
             >
               <ToggleButton value="energy">
-                <ElectricBoltIcon sx={{ mr: 1 }} /> Energy (kWh)
+                <ElectricBoltIcon sx={{ mr: 1 }} /> Điện năng (kWh)
               </ToggleButton>
               <ToggleButton value="cost">
-                <AttachMoneyIcon sx={{ mr: 1 }} /> Cost (VND)
+                <AttachMoneyIcon sx={{ mr: 1 }} /> Chi phí (VND)
               </ToggleButton>
             </ToggleButtonGroup>
           </Box>

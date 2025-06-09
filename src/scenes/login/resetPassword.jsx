@@ -7,8 +7,6 @@ import {
   Container,
   Paper,
   InputAdornment,
-  Alert,
-  Snackbar,
   CircularProgress,
   IconButton
 } from '@mui/material';
@@ -22,6 +20,8 @@ import SaveIcon from '@mui/icons-material/Save';
 import VisibilityIcon from '@mui/icons-material/Visibility';
 import VisibilityOffIcon from '@mui/icons-material/VisibilityOff';
 import EmailIcon from '@mui/icons-material/Email';
+import { toast, ToastContainer } from 'react-toastify';
+import 'react-toastify/dist/ReactToastify.css';
 
 const ResetPassword = () => {
   const theme = useTheme();
@@ -64,11 +64,6 @@ const ResetPassword = () => {
   
   // UI states
   const [isLoading, setIsLoading] = React.useState(false);
-  const [notification, setNotification] = React.useState({
-    open: false,
-    message: "",
-    type: "info"
-  });
 
   // Handle form input changes
   const handlePasswordChange = (e) => {
@@ -93,14 +88,6 @@ const ResetPassword = () => {
 
   const toggleConfirmPasswordVisibility = () => {
     setShowConfirmPassword(!showConfirmPassword);
-  };
-
-  // Close notification
-  const handleCloseNotification = () => {
-    setNotification({
-      ...notification,
-      open: false
-    });
   };
 
   // Validate form
@@ -137,11 +124,7 @@ const ResetPassword = () => {
     }
     
     if (!email || !token) {
-      setNotification({
-        open: true,
-        message: "Liên kết đặt lại mật khẩu không hợp lệ hoặc đã hết hạn",
-        type: "error"
-      });
+      toast.error("Liên kết đặt lại mật khẩu không hợp lệ hoặc đã hết hạn");
       return;
     }
     
@@ -154,11 +137,7 @@ const ResetPassword = () => {
         token: token
       });
       
-      setNotification({
-        open: true,
-        message: "Đặt lại mật khẩu thành công!",
-        type: "success"
-      });
+      toast.success("Đặt lại mật khẩu thành công!");
       
       // Clear form and redirect to login after a delay
       setPassword("");
@@ -171,11 +150,7 @@ const ResetPassword = () => {
     } catch (error) {
       console.error("Reset password error:", error);
       
-      setNotification({
-        open: true,
-        message: error.response?.data?.message || "Không thể đặt lại mật khẩu. Liên kết có thể đã hết hạn.",
-        type: "error"
-      });
+      toast.error(error.response?.data?.message || "Không thể đặt lại mật khẩu. Liên kết có thể đã hết hạn.");
     } finally {
       setIsLoading(false);
     }
@@ -245,7 +220,13 @@ const ResetPassword = () => {
             label="Email"
             value={email}
             disabled
-            sx={{ mb: 3 }}
+            sx={{
+              mb: 3,
+                "& .MuiOutlinedInput-root": {
+                  fontSize: "16px",
+                },
+                "& .MuiInputLabel-root.Mui-focused": { color: colors.primary[100] },
+            }}
             InputProps={{
               startAdornment: (
                 <InputAdornment position="start">
@@ -271,7 +252,13 @@ const ResetPassword = () => {
               error={!!passwordError}
               helperText={passwordError}
               disabled={isLoading}
-              sx={{ mb: 3 }}
+              sx={{
+                mb: 3,
+                "& .MuiOutlinedInput-root": {
+                  fontSize: "16px",
+                },
+                "& .MuiInputLabel-root.Mui-focused": { color: colors.primary[100] },
+              }}
               InputProps={{
                 startAdornment: (
                   <InputAdornment position="start">
@@ -307,7 +294,13 @@ const ResetPassword = () => {
               error={!!confirmPasswordError}
               helperText={confirmPasswordError}
               disabled={isLoading}
-              sx={{ mb: 4 }}
+              sx={{
+                mb: 4,
+                "& .MuiOutlinedInput-root": {
+                  fontSize: "16px",
+                },
+                "& .MuiInputLabel-root.Mui-focused": { color: colors.primary[100] },
+              }}
               InputProps={{
                 startAdornment: (
                   <InputAdornment position="start">
@@ -387,23 +380,7 @@ const ResetPassword = () => {
           </form>
         </Paper>
       </Container>
-      
-      {/* Notifications */}
-      <Snackbar 
-        open={notification.open} 
-        autoHideDuration={6000} 
-        onClose={handleCloseNotification}
-        anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
-      >
-        <Alert 
-          onClose={handleCloseNotification} 
-          severity={notification.type} 
-          sx={{ width: '100%' }}
-          variant="filled"
-        >
-          {notification.message}
-        </Alert>
-      </Snackbar>
+      <ToastContainer />
     </Box>
   );
 };

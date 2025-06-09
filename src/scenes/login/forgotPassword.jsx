@@ -8,8 +8,6 @@ import {
   Paper,
   Link,
   InputAdornment,
-  Alert,
-  Snackbar,
   CircularProgress
 } from '@mui/material';
 import { useTheme } from "@mui/material";
@@ -19,6 +17,8 @@ import { useNavigate } from 'react-router-dom';
 import EmailIcon from '@mui/icons-material/Email';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import SendIcon from '@mui/icons-material/Send';
+import { toast, ToastContainer } from 'react-toastify';
+import 'react-toastify/dist/ReactToastify.css';
 
 const ForgotPassword = () => {
   const theme = useTheme();
@@ -29,24 +29,11 @@ const ForgotPassword = () => {
   const [email, setEmail] = React.useState("");
   const [emailError, setEmailError] = React.useState("");
   const [isLoading, setIsLoading] = React.useState(false);
-  const [notification, setNotification] = React.useState({
-    open: false,
-    message: "",
-    type: "info" // 'success', 'error', 'info', 'warning'
-  });
 
   // Handle email input change
   const handleEmailChange = (e) => {
     setEmail(e.target.value);
     setEmailError("");
-  };
-
-  // Close notification
-  const handleCloseNotification = () => {
-    setNotification({
-      ...notification,
-      open: false
-    });
   };
 
   // Validate email format
@@ -75,22 +62,14 @@ const ForgotPassword = () => {
         email: email
       });
       
-      setNotification({
-        open: true,
-        message: "Đã gửi hướng dẫn đặt lại mật khẩu tới email của bạn!",
-        type: "success"
-      });
+      toast.success("Đã gửi hướng dẫn đặt lại mật khẩu tới email của bạn!");
       
       // Clear form after successful submission
       setEmail("");
     } catch (error) {
       console.error("Forgot password error:", error);
       
-      setNotification({
-        open: true,
-        message: error.response?.data?.message || "Không thể gửi yêu cầu. Vui lòng thử lại sau.",
-        type: "error"
-      });
+      toast.error(error.response?.data?.message || "Không thể gửi yêu cầu. Vui lòng thử lại sau.");
     } finally {
       setIsLoading(false);
     }
@@ -165,7 +144,13 @@ const ForgotPassword = () => {
               error={!!emailError}
               helperText={emailError}
               disabled={isLoading}
-              sx={{ mb: 4 }}
+              sx={{
+                mb: 4,
+                "& .MuiOutlinedInput-root": {
+                  fontSize: "16px",
+                },
+                "& .MuiInputLabel-root.Mui-focused": { color: colors.primary[100] },
+              }}
               InputProps={{
                 startAdornment: (
                   <InputAdornment position="start">
@@ -234,23 +219,7 @@ const ForgotPassword = () => {
           </form>
         </Paper>
       </Container>
-      
-      {/* Notifications */}
-      <Snackbar 
-        open={notification.open} 
-        autoHideDuration={6000} 
-        onClose={handleCloseNotification}
-        anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
-      >
-        <Alert 
-          onClose={handleCloseNotification} 
-          severity={notification.type} 
-          sx={{ width: '100%' }}
-          variant="filled"
-        >
-          {notification.message}
-        </Alert>
-      </Snackbar>
+      <ToastContainer />
     </Box>
   );
 };

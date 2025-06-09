@@ -36,7 +36,10 @@ import LinkIcon from "@mui/icons-material/Link";
 import LinkOffIcon from "@mui/icons-material/LinkOff";
 import monitoringApi from "../../services/monitoring";
 import floorApi from "../../services/floor";
-import lineApi from "../../services/line"; // Add this import
+import lineApi from "../../services/line";
+
+import { toast, ToastContainer } from 'react-toastify';
+import 'react-toastify/dist/ReactToastify.css';
 
 const MeasurementDevices = () => {
   const theme = useTheme();
@@ -58,12 +61,45 @@ const MeasurementDevices = () => {
 
   // State for API data
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(null);
   const [measurementDevices, setMeasurementDevices] = useState([]);
   const [totalCount, setTotalCount] = useState(0);
   const [totalPages, setTotalPages] = useState(0);
   
-  // Update state definition (remove initial values)
+  // Add missing state variables
+  const [page, setPage] = useState(0);
+  const [rowsPerPage, setRowsPerPage] = useState(10);
+  const [expandedDevice, setExpandedDevice] = useState(null);
+  
+  // Dialog states
+  const [deviceDialogOpen, setDeviceDialogOpen] = useState(false);
+  const [lineDialogOpen, setLineDialogOpen] = useState(false);
+  const [confirmDialogOpen, setConfirmDialogOpen] = useState(false);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  
+  // Form states
+  const [editingDevice, setEditingDevice] = useState(null);
+  const [newDevice, setNewDevice] = useState({
+    name: "",
+    code: "",
+    location: "",
+    active: true
+  });
+  
+  const [selectedDevice, setSelectedDevice] = useState(null);
+  const [editingLine, setEditingLine] = useState(null);
+  const [newLine, setNewLine] = useState({
+    code: "",
+    name: "",
+    floor: "",
+    room: "",
+    roomId: "",
+    active: true
+  });
+  
+  const [deleteDeviceId, setDeleteDeviceId] = useState(null);
+  const [disconnectInfo, setDisconnectInfo] = useState({ deviceId: null, lineId: null });
+  
+  // Update state definition
   const [availableFloors, setAvailableFloors] = useState([]);
   const [availableRooms, setAvailableRooms] = useState([]);
   
@@ -72,85 +108,73 @@ const MeasurementDevices = () => {
     try {
       const response = await floorApi.getAllFloor();
       
-      if (response && response.data) {
+      // Xử lý trường hợp response rỗng hoặc không có data
+      if (response && response.data && Array.isArray(response.data) && response.data.length > 0) {
         // Extract floor names
         const floors = response.data
-          .filter(floor => floor.name) // Only include floors with names
+          .filter(floor => floor && floor.name)
           .map(floor => floor.name);
         
         // Extract rooms with their floor relationships
         const rooms = [];
         response.data.forEach(floor => {
-          if (floor.rooms && floor.name) {
+          if (floor && floor.rooms && Array.isArray(floor.rooms) && floor.name) {
             floor.rooms.forEach(room => {
-              rooms.push({
-                id: room.id,
-                name: room.name,
-                floor: floor.name
-              });
+              if (room && room.id && room.name) {
+                rooms.push({
+                  id: room.id,
+                  name: room.name,
+                  floor: floor.name
+                });
+              }
             });
           }
         });
         
         setAvailableFloors(floors);
         setAvailableRooms(rooms);
+      } else {
+        // Trường hợp không có dữ liệu
+        setAvailableFloors([]);
+        setAvailableRooms([]);
+        console.log("No floors and rooms data available");
       }
     } catch (err) {
       console.error("Error fetching floors and rooms:", err);
-      setError("Failed to load floors and rooms data. Please try again.");
+      setAvailableFloors([]);
+      setAvailableRooms([]);
+      toast.error("Không thể tải dữ liệu tầng và phòng. Vui lòng thử lại.");
     }
   };
   
   // Get rooms for selected floor
   const getRoomsForFloor = (floorName) => {
-    if (!floorName) return [];
-    return availableRooms.filter(room => room.floor === floorName);
+    if (!floorName || !availableRooms || !Array.isArray(availableRooms) || availableRooms.length === 0) return [];
+    return availableRooms.filter(room => room && room.floor === floorName);
   };
-
-  const [newDevice, setNewDevice] = useState({
-    name: "",
-    code: "",
-    location: "",
-    active: true
-  });
-
-  const [newLine, setNewLine] = useState({
-    code: "",
-    name: "",
-    floor: "",
-    room: "",
-    active: true
-  });
-  
-  // UI state
-  const [expandedDevice, setExpandedDevice] = useState(null);
-  const [page, setPage] = useState(0);
-  const [rowsPerPage, setRowsPerPage] = useState(5);
-  
-  // Dialog states
-  const [deviceDialogOpen, setDeviceDialogOpen] = useState(false);
-  const [lineDialogOpen, setLineDialogOpen] = useState(false);
-  const [confirmDialogOpen, setConfirmDialogOpen] = useState(false);
-  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
-  
-  const [editingDevice, setEditingDevice] = useState(null);
-  const [selectedDevice, setSelectedDevice] = useState(null);
-  const [editingLine, setEditingLine] = useState(null);
-  const [disconnectInfo, setDisconnectInfo] = useState({ deviceId: null, lineId: null });
-  const [deleteDeviceId, setDeleteDeviceId] = useState(null);
 
   // Fetch data from API
   const fetchDevices = async () => {
     try {
       setLoading(true);
-      setError(null);
       const response = await monitoringApi.getAllMonitoring(page + 1, rowsPerPage);
-      setMeasurementDevices(response.data.data);
-      setTotalCount(response.data.meta.totalCount);
-      setTotalPages(response.data.meta.totalPages);
+      
+      // Xử lý trường hợp response rỗng
+      if (response && response.data) {
+        setMeasurementDevices(Array.isArray(response.data.data) ? response.data.data : []);
+        setTotalCount(response.data.meta?.totalCount || 0);
+        setTotalPages(response.data.meta?.totalPages || 0);
+      } else {
+        setMeasurementDevices([]);
+        setTotalCount(0);
+        setTotalPages(0);
+      }
     } catch (err) {
       console.error("Error fetching devices:", err);
-      setError("Failed to load devices. Please try again.");
+      setMeasurementDevices([]);
+      setTotalCount(0);
+      setTotalPages(0);
+      toast.error("Không thể tải danh sách thiết bị. Vui lòng thử lại.");
     } finally {
       setLoading(false);
     }
@@ -231,9 +255,10 @@ const MeasurementDevices = () => {
       // Refresh device list
       fetchDevices();
       setDeviceDialogOpen(false);
+      toast.success(editingDevice ? "Device updated successfully!" : "Device added successfully!");
     } catch (err) {
       console.error("Error saving device:", err);
-      setError("Failed to save device. Please try again.");
+      toast.error("Failed to save device. Please try again.");
     } finally {
       setLoading(false);
     }
@@ -252,9 +277,10 @@ const MeasurementDevices = () => {
       // Refresh device list
       await fetchDevices();
       setDeleteDialogOpen(false);
+      toast.success("Device deleted successfully!");
     } catch (err) {
       console.error("Error deleting device:", err);
-      setError("Failed to delete device. Please try again.");
+      toast.error("Failed to delete device. Please try again.");
     } finally {
       setLoading(false);
     }
@@ -322,9 +348,9 @@ const MeasurementDevices = () => {
         
         // Find the room ID based on room name and floor
         let roomId = null;
-        if (newLine.room && newLine.floor) {
+        if (newLine.room && newLine.floor && availableRooms && Array.isArray(availableRooms) && availableRooms.length > 0) {
           const matchedRoom = availableRooms.find(
-            room => room.name === newLine.room && room.floor === newLine.floor
+            room => room && room.name === newLine.room && room.floor === newLine.floor
           );
           if (matchedRoom) {
             roomId = matchedRoom.id;
@@ -335,7 +361,7 @@ const MeasurementDevices = () => {
         const lineData = {
           monitoringId: selectedDevice.id,
           lineId: editingLine.id,
-          name: newLine.name,
+          name: newLine.name || null,
           roomId: roomId
         };
         
@@ -345,9 +371,10 @@ const MeasurementDevices = () => {
         // Refresh devices list
         await fetchDevices();
         setLineDialogOpen(false);
+        toast.success("Cập nhật lộ điện thành công!");
       } catch (err) {
         console.error("Error updating line:", err);
-        setError("Failed to update line. Please try again.");
+        toast.error("Không thể cập nhật lộ điện. Vui lòng thử lại.");
       } finally {
         setLoading(false);
       }
@@ -365,18 +392,17 @@ const MeasurementDevices = () => {
     try {
       setLoading(true);
       
-      // Llamar a la API con la estructura correcta para desconectar la línea
       await lineApi.disconnectLine({ 
         monitoringId: deviceId,
         lineId: lineId 
       });
       
-      // Actualizar los datos
       await fetchDevices();
       setConfirmDialogOpen(false);
+      toast.success("Line disconnected successfully!");
     } catch (err) {
       console.error("Error disconnecting line:", err);
-      setError("Failed to disconnect line. Please try again.");
+      toast.error("Failed to disconnect line. Please try again.");
     } finally {
       setLoading(false);
     }
@@ -384,15 +410,10 @@ const MeasurementDevices = () => {
 
   return (
     <Box m="20px">
+      
       {/* Header component */}
-      <Header title="Measurement Devices" subtitle="Managing power monitoring devices and connections" />
-      
-      {error && (
-        <Box sx={{ bgcolor: colors.redAccent[900], p: 2, mb: 2, borderRadius: 1 }}>
-          <Typography color="error">{error}</Typography>
-        </Box>
-      )}
-      
+      <Header title="Thiết bị đo" subtitle="Quản lý thiết bị giám sát công suất và kết nối" />
+
       <Box display="flex" justifyContent="flex-end" mb={3}>
         <Button
           variant="contained"
@@ -401,7 +422,7 @@ const MeasurementDevices = () => {
           onClick={() => openDeviceDialog()}
           sx={{ fontSize: "14px", py: 1 }}
         >
-          Add Measurement Device
+          Thêm thiết bị đo
         </Button>
       </Box>
       
@@ -411,12 +432,12 @@ const MeasurementDevices = () => {
           <TableHead>
             <TableRow>
               <TableCell sx={{ width: '60px' }} />
-              <TableCell sx={{ color: colors.grey[100], fontWeight: 'bold', fontSize: "18px" }}>Name</TableCell>
-              <TableCell sx={{ color: colors.grey[100], fontWeight: 'bold', fontSize: "18px" }}>Code</TableCell>
-              <TableCell sx={{ color: colors.grey[100], fontWeight: 'bold', fontSize: "18px" }}>Location</TableCell>
-              <TableCell sx={{ color: colors.grey[100], fontWeight: 'bold', fontSize: "18px" }}>Status</TableCell>
-              <TableCell sx={{ color: colors.grey[100], fontWeight: 'bold', fontSize: "18px" }} align="center">Lines</TableCell>
-              <TableCell sx={{ color: colors.grey[100], fontWeight: 'bold', fontSize: "18px" }} align="center">Actions</TableCell>
+              <TableCell sx={{ color: colors.grey[100], fontWeight: 'bold', fontSize: "18px" }}>Tên</TableCell>
+              <TableCell sx={{ color: colors.grey[100], fontWeight: 'bold', fontSize: "18px" }}>Mã thiết bị</TableCell>
+              <TableCell sx={{ color: colors.grey[100], fontWeight: 'bold', fontSize: "18px" }}>Vị trí</TableCell>
+              <TableCell sx={{ color: colors.grey[100], fontWeight: 'bold', fontSize: "18px" }}>Trạng thái</TableCell>
+              <TableCell sx={{ color: colors.grey[100], fontWeight: 'bold', fontSize: "18px" }} align="center">Số lộ</TableCell>
+              <TableCell sx={{ color: colors.grey[100], fontWeight: 'bold', fontSize: "18px" }} align="center">Hành động</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
@@ -426,29 +447,31 @@ const MeasurementDevices = () => {
                   <CircularProgress color="secondary" />
                 </TableCell>
               </TableRow>
-            ) : measurementDevices.length > 0 ? (
+            ) : (measurementDevices && Array.isArray(measurementDevices) && measurementDevices.length > 0) ? (
               measurementDevices.map((device) => (
-                <React.Fragment key={device.id}>
+                <React.Fragment key={device?.id || Math.random()}>
                   <TableRow hover>
                     <TableCell>
                       <IconButton
                         size="medium"
-                        onClick={() => handleExpandDevice(device.id)}
+                        onClick={() => handleExpandDevice(device?.id)}
                       >
-                        {expandedDevice === device.id ? <KeyboardArrowUpIcon /> : <KeyboardArrowDownIcon />}
+                        {expandedDevice === device?.id ? <KeyboardArrowUpIcon /> : <KeyboardArrowDownIcon />}
                       </IconButton>
                     </TableCell>
-                    <TableCell sx={{ fontSize: "16px" }}>{device.name}</TableCell>
-                    <TableCell sx={{ fontSize: "16px" }}>{device.code}</TableCell>
-                    <TableCell sx={{ fontSize: "16px" }}>{device.location || "-"}</TableCell>
+                    <TableCell sx={{ fontSize: "16px" }}>{device?.name || "-"}</TableCell>
+                    <TableCell sx={{ fontSize: "16px" }}>{device?.code || "-"}</TableCell>
+                    <TableCell sx={{ fontSize: "16px" }}>{device?.location || "-"}</TableCell>
                     <TableCell>
                       <Chip
-                        label={device.active ? "Active" : "Inactive"} 
-                        color={device.active ? "success" : "default"} 
+                        label={device?.active ? "Active" : "Inactive"} 
+                        color={device?.active ? "success" : "default"} 
                         sx={{ fontSize: "14px", height: "28px" }}
                       />
                     </TableCell>
-                    <TableCell align="center" sx={{ fontSize: "16px" }}>{device.lines?.length || 0}</TableCell>
+                    <TableCell align="center" sx={{ fontSize: "16px" }}>
+                      {(device?.lines && Array.isArray(device.lines)) ? device.lines.length : 0}
+                    </TableCell>
                     <TableCell align="center">
                       <Box>
                         <Tooltip title="Edit">
@@ -460,7 +483,7 @@ const MeasurementDevices = () => {
                           <IconButton 
                             size="medium" 
                             color="error"
-                            onClick={() => handleDeleteDevice(device.id)}
+                            onClick={() => handleDeleteDevice(device?.id)}
                           >
                             <DeleteIcon />
                           </IconButton>
@@ -472,47 +495,47 @@ const MeasurementDevices = () => {
                   {/* Expanded lines section */}
                   <TableRow>
                     <TableCell colSpan={7} style={{ padding: 0, borderBottom: 0 }}>
-                      <Collapse in={expandedDevice === device.id} timeout="auto" unmountOnExit>
+                      <Collapse in={expandedDevice === device?.id} timeout="auto" unmountOnExit>
                         <Box sx={{ margin: 2 }}>
                           <Typography variant="h5" gutterBottom>
-                            Lines
+                            Lộ điện
                           </Typography>
-                          {!device.lines || device.lines.length === 0 ? (
+                          {(!device?.lines || !Array.isArray(device.lines) || device.lines.length === 0) ? (
                             <Typography variant="body1" color={colors.grey[300]} sx={{ mb: 2, fontSize: "16px" }}>
-                              No lines available for this device.
+                              Thiết bị này chưa có lộ điện nào.
                             </Typography>
                           ) : (
                             <Table size="medium">
                               <TableHead>
                                 <TableRow>
-                                  <TableCell sx={{ color: colors.grey[100], fontWeight: 'bold', fontSize: "16px" }}>Line Code</TableCell>
-                                  <TableCell sx={{ color: colors.grey[100], fontWeight: 'bold', fontSize: "16px" }}>Status</TableCell>
-                                  <TableCell sx={{ color: colors.grey[100], fontWeight: 'bold', fontSize: "16px" }}>Name</TableCell>
-                                  <TableCell sx={{ color: colors.grey[100], fontWeight: 'bold', fontSize: "16px" }}>Room</TableCell>
-                                  <TableCell sx={{ color: colors.grey[100], fontWeight: 'bold', fontSize: "16px" }}>Floor</TableCell>
-                                  <TableCell sx={{ color: colors.grey[100], fontWeight: 'bold', fontSize: "16px" }} align="center">Actions</TableCell>
+                                  <TableCell sx={{ color: colors.grey[100], fontWeight: 'bold', fontSize: "16px" }}>Mã Lộ</TableCell>
+                                  <TableCell sx={{ color: colors.grey[100], fontWeight: 'bold', fontSize: "16px" }}>Trạng thái</TableCell>
+                                  <TableCell sx={{ color: colors.grey[100], fontWeight: 'bold', fontSize: "16px" }}>Tên</TableCell>
+                                  <TableCell sx={{ color: colors.grey[100], fontWeight: 'bold', fontSize: "16px" }}>Phòng</TableCell>
+                                  <TableCell sx={{ color: colors.grey[100], fontWeight: 'bold', fontSize: "16px" }}>Tầng</TableCell>
+                                  <TableCell sx={{ color: colors.grey[100], fontWeight: 'bold', fontSize: "16px" }} align="center">Hành động</TableCell>
                                 </TableRow>
                               </TableHead>
                               <TableBody>
                                 {device.lines.map((line) => (
-                                  <TableRow key={line.id}>
-                                    <TableCell sx={{ fontSize: "16px" }}>{line.code}</TableCell>
+                                  <TableRow key={line?.id || Math.random()}>
+                                    <TableCell sx={{ fontSize: "16px" }}>{line?.code || "-"}</TableCell>
                                     <TableCell>
                                       <Chip 
-                                        label={line.active ? "Active" : "Inactive"} 
-                                        color={line.active ? "success" : "default"} 
-                                        icon={line.active ? <LinkIcon /> : <LinkOffIcon />}
+                                        label={line?.active ? "Active" : "Inactive"} 
+                                        color={line?.active ? "success" : "default"} 
+                                        icon={line?.active ? <LinkIcon /> : <LinkOffIcon />}
                                         sx={{ fontSize: "14px", height: "28px" }}
                                       />
                                     </TableCell>
                                     <TableCell sx={{ fontSize: "16px" }}>
-                                      {line.name || "Not set"}
+                                      {line?.name || "Chưa đặt tên"}
                                     </TableCell>
                                     <TableCell sx={{ fontSize: "16px" }}>
-                                      {line.room?.name || "-"}
+                                      {line?.room?.name || "-"}
                                     </TableCell>
                                     <TableCell sx={{ fontSize: "16px" }}>
-                                      {line.room?.floor?.name || "-"}
+                                      {line?.room?.floor?.name || "-"}
                                     </TableCell>
                                     <TableCell align="center">
                                       <Box>
@@ -525,11 +548,11 @@ const MeasurementDevices = () => {
                                           </IconButton>
                                         </Tooltip>
                                         
-                                        {line.room && (
+                                        {line?.room && (
                                           <Tooltip title="Disconnect">
                                             <IconButton 
                                               size="medium"
-                                              onClick={() => handleDisconnectLine(device.id, line.id)}
+                                              onClick={() => handleDisconnectLine(device?.id, line?.id)}
                                             >
                                               <LinkOffIcon />
                                             </IconButton>
@@ -551,7 +574,7 @@ const MeasurementDevices = () => {
             ) : (
               <TableRow>
                 <TableCell colSpan={7} align="center" sx={{ fontSize: "16px" }}>
-                  No measurement devices found
+                  Không tìm thấy thiết bị đo nào.
                 </TableCell>
               </TableRow>
             )}
@@ -582,7 +605,7 @@ const MeasurementDevices = () => {
         <Box sx={modalStyle}>
           {/* Title */}
           <Typography id="device-modal-title" variant="h4" sx={{ mb: 3, fontSize: "22px" }}>
-            {editingDevice ? "Edit Measurement Device" : "Add Measurement Device"}
+            {editingDevice ? "Chỉnh sửa thiết bị đo" : "Thêm thiết bị đo"}
           </Typography>
           
           {/* Content */}
@@ -591,7 +614,7 @@ const MeasurementDevices = () => {
               margin="normal"
               required
               fullWidth
-              label="Device Name"
+              label="Tên thiết bị"
               name="name"
               value={newDevice.name}
               sx={{
@@ -607,7 +630,7 @@ const MeasurementDevices = () => {
               margin="normal"
               required
               fullWidth
-              label="Device Code"
+              label="Mã thiết bị"
               disabled={editingDevice}
               name="code"
               value={newDevice.code}
@@ -623,7 +646,7 @@ const MeasurementDevices = () => {
             <TextField
               margin="normal"
               fullWidth
-              label="Location"
+              label="Vị trí"
               name="location"
               value={newDevice.location}
               sx={{
@@ -642,7 +665,7 @@ const MeasurementDevices = () => {
               onClick={() => setDeviceDialogOpen(false)} 
               sx={{ fontSize: "16px", color: colors.primary[100] }}
             >
-              Cancel
+              Hủy
             </Button>
             <Button 
               onClick={handleSaveDevice}
@@ -651,7 +674,7 @@ const MeasurementDevices = () => {
               disabled={loading || !newDevice.name || !newDevice.code}
               sx={{ fontSize: "16px" }}
             >
-              {loading ? <CircularProgress size={24} color="inherit" /> : "Save"}
+              {loading ? <CircularProgress size={24} color="inherit" /> : "Lưu"}
             </Button>
           </Box>
         </Box>
@@ -675,7 +698,7 @@ const MeasurementDevices = () => {
               margin="normal"
               required
               fullWidth
-              label="Line Code"
+              label="Mã lộ điện"
               name="code"
               value={newLine.code}
               disabled={true}
@@ -690,7 +713,7 @@ const MeasurementDevices = () => {
             <TextField
               margin="normal"
               fullWidth
-              label="Line Name"
+              label="Tên thiết bị"
               name="name"
               value={newLine.name}
               onChange={handleLineInputChange}
@@ -700,18 +723,18 @@ const MeasurementDevices = () => {
                 },
                 "& .MuiInputLabel-root.Mui-focused": { color: colors.primary[100] },
               }}
-              placeholder="Enter a name for this line"
+              placeholder="Nhập tên lộ điện"
             />
             
             {/* Floor dropdown */}
             <FormControl fullWidth margin="normal">
-              <InputLabel id="floor-select-label" sx={{ fontSize: "16px", "&.Mui-focused": {color: colors.primary[100]}}}>Floor</InputLabel>
+              <InputLabel id="floor-select-label" sx={{ fontSize: "16px", "&.Mui-focused": {color: colors.primary[100]}}}>Tầng</InputLabel>
               <Select
                 labelId="floor-select-label"
                 id="floor-select"
                 name="floor"
                 value={newLine.floor}
-                label="Floor"
+                label="Tầng"
                 onChange={handleLineInputChange}
               >
                 <MenuItem value="">
@@ -721,18 +744,18 @@ const MeasurementDevices = () => {
                   <MenuItem key={floor} value={floor}>{floor}</MenuItem>
                 ))}
               </Select>
-              <FormHelperText>Select a floor or leave empty</FormHelperText>
+              <FormHelperText>Chọn tầng hoặc để trống</FormHelperText>
             </FormControl>
             
             {/* Room dropdown (filtered by selected floor) */}
             <FormControl fullWidth margin="normal" disabled={!newLine.floor}>
-              <InputLabel id="room-select-label" sx={{ fontSize: "16px", "&.Mui-focused": {color: colors.primary[100]}}}>Room</InputLabel>
+              <InputLabel id="room-select-label" sx={{ fontSize: "16px", "&.Mui-focused": {color: colors.primary[100]}}}>Phòng</InputLabel>
               <Select
                 labelId="room-select-label"
                 id="room-select"
                 name="room"
                 value={newLine.room}
-                label="Room"
+                label="Phòng"
                 onChange={handleLineInputChange}
               >
                 <MenuItem value="">
@@ -744,15 +767,15 @@ const MeasurementDevices = () => {
               </Select>
               <FormHelperText>
                 {newLine.floor 
-                  ? "Select a room or leave empty" 
-                  : "Select a floor first"}
+                  ? "Chọn phòng hoặc để trống" 
+                  : "Chọn tầng trước"}
               </FormHelperText>
             </FormControl>
           </Box>
           
           {/* Actions */}
           <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: 3, gap: 1 }}>
-            <Button onClick={() => setLineDialogOpen(false)} sx={{ fontSize: "16px", color: colors.primary[100] }}>Cancel</Button>
+            <Button onClick={() => setLineDialogOpen(false)} sx={{ fontSize: "16px", color: colors.primary[100] }}>Hủy</Button>
             <Button 
               onClick={handleSaveLine}
               color="secondary"
@@ -760,7 +783,7 @@ const MeasurementDevices = () => {
               disabled={loading}
               sx={{ fontSize: "16px" }}
             >
-              {loading ? <CircularProgress size={24} color="inherit" /> : "Update Line"}
+              {loading ? <CircularProgress size={24} color="inherit" /> : "Cập nhật"}
             </Button>
           </Box>
         </Box>
@@ -772,15 +795,15 @@ const MeasurementDevices = () => {
         onClose={() => setConfirmDialogOpen(false)}
       >
         <Box sx={modalStyle}>
-          <Typography id="disconnect-confirm-title" variant="h5" sx={{ mb: 2 }}>
-            Confirm Disconnection
+          <Typography id="disconnect-confirm-title" variant="h5" sx={{ mb: 2, fontSize: "22px" }}>
+            Xác nhận ngắt kết nối
           </Typography>
-          <Typography sx={{ mb: 3 }}>
-            Are you sure you want to disconnect this line from its room?
+          <Typography variant="body1" sx={{ mb: 3, fontSize: "16px" }}>
+            Bạn có chắc chắn muốn ngắt kết nối lộ điện này khỏi thiết bị?
           </Typography>
           <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 1 }}>
             <Button onClick={() => setConfirmDialogOpen(false)} sx={{ fontSize: "16px", color: colors.primary[100] }}>
-              Cancel
+              Hủy
             </Button>
             <Button
               onClick={confirmDisconnect}
@@ -789,7 +812,7 @@ const MeasurementDevices = () => {
               disabled={loading}
               sx={{ fontSize: "16px" }}
             >
-              {loading ? <CircularProgress size={24} color="inherit" /> : "Disconnect"}
+              {loading ? <CircularProgress size={24} color="inherit" /> : "Ngắt kết nối"}
             </Button>
           </Box>
         </Box>
@@ -801,18 +824,18 @@ const MeasurementDevices = () => {
         onClose={() => setDeleteDialogOpen(false)}
       >
         <Box sx={modalStyle}>
-          <Typography id="delete-confirm-title" variant="h5" sx={{ mb: 2 }}>
-            Confirm Deletion
+          <Typography id="delete-confirm-title" variant="h5" sx={{ mb: 2, fontSize: "22px" }}>
+            Xác nhận xóa
           </Typography>
-          <Typography sx={{ mb: 3 }}>
-            Are you sure you want to delete this measurement device? This action cannot be undone and will remove all associated line data.
+          <Typography variant="body1" sx={{ mb: 3, fontSize: "16px" }}>
+            Bạn có chắc chắn muốn xóa thiết bị đo này không? Hành động này sẽ xóa tất cả dữ liệu lộ điện liên quan.
           </Typography>
           <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 1 }}>
             <Button 
               onClick={() => setDeleteDialogOpen(false)} 
               sx={{ fontSize: "16px", color: colors.primary[100] }}
             >
-              Cancel
+              Hủy
             </Button>
             <Button
               onClick={confirmDeleteDevice}
@@ -821,11 +844,14 @@ const MeasurementDevices = () => {
               disabled={loading}
               sx={{ fontSize: "16px" }}
             >
-              {loading ? <CircularProgress size={24} color="inherit" /> : "Delete"}
+              {loading ? <CircularProgress size={24} color="inherit" /> : "Xóa"}
             </Button>
           </Box>
         </Box>
       </Modal>
+
+      {/* Toast Container for notifications */}
+      <ToastContainer />
     </Box>
   );
 };

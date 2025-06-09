@@ -10,16 +10,16 @@ import {
   IconButton,
   Container,
   Link as MuiLink,
-  Alert,
-  Snackbar,
   CircularProgress
 } from "@mui/material";
 import { Visibility, VisibilityOff, AccountCircle, Email, Lock } from "@mui/icons-material";
 import { Link, useNavigate } from "react-router-dom";
+import { toast, ToastContainer } from 'react-toastify';
+import 'react-toastify/dist/ReactToastify.css';
 import { tokens } from "../../theme";
 import authApi from "../../services/auth";
 
-const Signup = ({setIsLoggedIn}) => {
+const Signup = ({setIsLoggedIn, setUserRole}) => {
   const theme = useTheme();
   const colors = tokens(theme.palette.mode);
   const navigate = useNavigate();
@@ -40,13 +40,8 @@ const Signup = ({setIsLoggedIn}) => {
     confirmPassword: "",
   });
 
-  // Loading and notification states
+  // Loading state
   const [isLoading, setIsLoading] = useState(false);
-  const [notification, setNotification] = useState({
-    open: false,
-    message: "",
-    type: "info" // 'success', 'error', 'info', 'warning'
-  });
 
   // Password visibility state
   const [showPassword, setShowPassword] = useState(false);
@@ -67,14 +62,6 @@ const Signup = ({setIsLoggedIn}) => {
         [name]: "",
       });
     }
-  };
-
-  // Close notification
-  const handleCloseNotification = () => {
-    setNotification({
-      ...notification,
-      open: false
-    });
   };
 
   // Validate form
@@ -146,23 +133,18 @@ const Signup = ({setIsLoggedIn}) => {
         
         console.log("Registration successful:", response);
         
-        setNotification({
-          open: true,
-          message: "Registration successful! Redirecting to login...",
-          type: "success"
-        });
+        // Show success toast
+        toast.success("Registration successful! Welcome!");
         
         setIsLoggedIn(true);
+        setUserRole(response.data.user.role || "");
         navigate("/");
-        
+
       } catch (error) {
         console.error("Registration error:", error);
         
-        setNotification({
-          open: true,
-          message: error.response?.data?.message || "Registration failed. Please try again.",
-          type: "error"
-        });
+        // Show error toast
+        toast.error(error.response?.data?.message || "Registration failed. Please try again.");
       } finally {
         setIsLoading(false);
       }
@@ -209,7 +191,13 @@ const Signup = ({setIsLoggedIn}) => {
               error={!!formErrors.username}
               helperText={formErrors.username}
               disabled={isLoading}
-              sx={{ mb: 3 }}
+              sx={{ 
+                mb: 3,
+                "& .MuiOutlinedInput-root": {
+                  fontSize: "16px",
+                },
+                "& .MuiInputLabel-root.Mui-focused": { color: colors.primary[100] },
+              }}
               InputProps={{
                 startAdornment: (
                   <InputAdornment position="start">
@@ -235,7 +223,13 @@ const Signup = ({setIsLoggedIn}) => {
               error={!!formErrors.email}
               helperText={formErrors.email}
               disabled={isLoading}
-              sx={{ mb: 3 }}
+              sx={{
+                mb: 3,
+                "& .MuiOutlinedInput-root": {
+                  fontSize: "16px",
+                },
+                "& .MuiInputLabel-root.Mui-focused": { color: colors.primary[100] },
+              }}
               InputProps={{
                 startAdornment: (
                   <InputAdornment position="start">
@@ -261,7 +255,13 @@ const Signup = ({setIsLoggedIn}) => {
               error={!!formErrors.password}
               helperText={formErrors.password}
               disabled={isLoading}
-              sx={{ mb: 3 }}
+              sx={{
+                mb: 3,
+                "& .MuiOutlinedInput-root": {
+                  fontSize: "16px",
+                },
+                "& .MuiInputLabel-root.Mui-focused": { color: colors.primary[100] },
+              }}
               InputProps={{
                 startAdornment: (
                   <InputAdornment position="start">
@@ -299,7 +299,13 @@ const Signup = ({setIsLoggedIn}) => {
               error={!!formErrors.confirmPassword}
               helperText={formErrors.confirmPassword}
               disabled={isLoading}
-              sx={{ mb: 4 }}
+              sx={{
+                mb: 4,
+                "& .MuiOutlinedInput-root": {
+                  fontSize: "16px",
+                },
+                "& .MuiInputLabel-root.Mui-focused": { color: colors.primary[100] },
+              }}
               InputProps={{
                 startAdornment: (
                   <InputAdornment position="start">
@@ -372,23 +378,7 @@ const Signup = ({setIsLoggedIn}) => {
           </Box>
         </Paper>
       </Container>
-      
-      {/* Notifications */}
-      <Snackbar 
-        open={notification.open} 
-        autoHideDuration={6000} 
-        onClose={handleCloseNotification}
-        anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
-      >
-        <Alert 
-          onClose={handleCloseNotification} 
-          severity={notification.type} 
-          sx={{ width: '100%' }}
-          variant="filled"
-        >
-          {notification.message}
-        </Alert>
-      </Snackbar>
+      <ToastContainer />
     </Box>
   );
 };

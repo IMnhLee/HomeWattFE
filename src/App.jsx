@@ -27,7 +27,7 @@ function App() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [toggled, setToggled] = useState(false);
   const [broken, setBroken] = useState(false);
-  const [userRole, setUserRole] = useState("user"); // Mặc định là user thông thường
+  const [userRole, setUserRole] = useState("user");
 
   useEffect(() => {
     // Kiểm tra đăng nhập từ localStorage
@@ -57,7 +57,7 @@ function App() {
       <ThemeProvider theme={theme}>
         <CssBaseline />
         <div className="app">
-          {isLoggedIn && (
+          {isLoggedIn && userRole === "user" && (
             <Sidebar
               nameUser={localStorage.getItem("userName") || "User"}
               setBroken={setBroken}
@@ -84,8 +84,8 @@ function App() {
               
               <Routes>
                 {/* Public routes */}
-                <Route path="/login" element={<Login setIsLoggedIn={setIsLoggedIn}/>} />
-                <Route path="/signup" element={<Signup setIsLoggedIn={setIsLoggedIn}/>} />
+                <Route path="/login" element={<Login setIsLoggedIn={setIsLoggedIn} setUserRole={setUserRole} />} />
+                <Route path="/signup" element={<Signup setIsLoggedIn={setIsLoggedIn} setUserRole={setUserRole} />} />
                 <Route path="/forgot-password" element={<ForgotPassword />} />
                 <Route path="/reset-password" element={<ResetPassword />} />
 
@@ -138,7 +138,7 @@ function App() {
                 
                 {/* Admin only routes */}
                 <Route path="/admin/users" element={
-                  <PrivateRoute roles={["user"]}>
+                  <PrivateRoute roles={["admin"]}>
                     <ManageUser />
                   </PrivateRoute>
                 } />

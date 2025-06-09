@@ -12,8 +12,6 @@ import {
   Link as MuiLink,
   InputAdornment,
   IconButton,
-  Alert,
-  Snackbar,
   CircularProgress
 } from '@mui/material';
 import { styled } from '@mui/material/styles';
@@ -25,8 +23,10 @@ import PersonAddIcon from '@mui/icons-material/PersonAdd';
 import LoginIcon from '@mui/icons-material/Login';
 import GoogleIcon from '@mui/icons-material/Google';
 import { Visibility, VisibilityOff, Person, Lock } from '@mui/icons-material';
+import { toast, ToastContainer } from 'react-toastify';
+import 'react-toastify/dist/ReactToastify.css';
 
-const Login = ({ setIsLoggedIn }) => {
+const Login = ({ setIsLoggedIn, setUserRole }) => {
   const theme = useTheme();
   const colors = tokens(theme.palette.mode);
   const navigate = useNavigate();
@@ -47,11 +47,43 @@ const Login = ({ setIsLoggedIn }) => {
   // UI states
   const [isLoading, setIsLoading] = React.useState(false);
   const [showPassword, setShowPassword] = React.useState(false);
-  const [notification, setNotification] = React.useState({
-    open: false,
-    message: "",
-    type: "info" // 'success', 'error', 'info', 'warning'
-  });
+
+  // Check if user is already logged in
+  React.useEffect(() => {
+    const checkLoggedIn = () => {
+      const accessToken = localStorage.getItem("access_token");
+      const refreshToken = localStorage.getItem("refresh_token");
+      const user = localStorage.getItem("user");
+      const logged = localStorage.getItem("logged");
+
+      // Nếu có đầy đủ thông tin đăng nhập
+      if (accessToken && refreshToken && user && logged === 'true') {
+        try {
+          const userData = JSON.parse(user);
+          setIsLoggedIn(true);
+          setUserRole(userData.role || "");
+          
+          // Chuyển hướng dựa trên role
+          if (userData.role === 'admin') {
+            navigate('/admin/users');
+          } else if (userData.role === 'user') {
+            navigate('/');
+          } else {
+            navigate('/');
+          }
+        } catch (error) {
+          console.error("Error parsing user data:", error);
+          // Nếu có lỗi parse, xóa dữ liệu không hợp lệ
+          localStorage.removeItem("access_token");
+          localStorage.removeItem("refresh_token");
+          localStorage.removeItem("user");
+          localStorage.removeItem("logged");
+        }
+      }
+    };
+
+    checkLoggedIn();
+  }, [navigate, setIsLoggedIn]);
 
   // Handle form input changes
   const handleChange = (e) => {
@@ -68,14 +100,6 @@ const Login = ({ setIsLoggedIn }) => {
         [name]: "",
       });
     }
-  };
-
-  // Close notification
-  const handleCloseNotification = () => {
-    setNotification({
-      ...notification,
-      open: false
-    });
   };
   
   // Validate form
@@ -127,23 +151,21 @@ const Login = ({ setIsLoggedIn }) => {
       localStorage.setItem("logged", true);
       
       setIsLoggedIn(true);
+      setUserRole(response.data.user.role || "");
       
-      setNotification({
-        open: true,
-        message: "Đăng nhập thành công!",
-        type: "success"
-      });
+      toast.success("Đăng nhập thành công!");
       
       // Chuyển hướng sau khi đăng nhập thành công
-      navigate('/');
+      if (response.data.user.role === 'admin') {
+        navigate('/admin/users');
+      }
+      else if (response.data.user.role === 'user') {
+        navigate('/');
+      }
     } catch (error) {
       console.error("Login error:", error);
       
-      setNotification({
-        open: true,
-        message: error.response?.data?.message || "Đăng nhập thất bại. Vui lòng thử lại.",
-        type: "error"
-      });
+      toast.error(error.response?.data?.message || "Đăng nhập thất bại. Vui lòng thử lại.");
     } finally {
       setIsLoading(false);
     }
@@ -151,11 +173,7 @@ const Login = ({ setIsLoggedIn }) => {
 
   const handleGoogleLogin = () => {
     // Implement Google login integration
-    setNotification({
-      open: true,
-      message: "Tính năng đăng nhập bằng Google đang được phát triển.",
-      type: "info"
-    });
+    toast.info("Tính năng đăng nhập bằng Google đang được phát triển.");
   };
 
   const handleNavigateToSignup = () => {
@@ -217,7 +235,13 @@ const Login = ({ setIsLoggedIn }) => {
               error={!!formErrors.username}
               helperText={formErrors.username}
               disabled={isLoading}
-              sx={{ mb: 3 }}
+              sx={{
+                mb: 3,
+                "& .MuiOutlinedInput-root": {
+                  fontSize: "16px",
+                },
+                "& .MuiInputLabel-root.Mui-focused": { color: colors.primary[100] },
+              }}
               InputProps={{
                 startAdornment: (
                   <InputAdornment position="start">
@@ -243,7 +267,13 @@ const Login = ({ setIsLoggedIn }) => {
               error={!!formErrors.password}
               helperText={formErrors.password}
               disabled={isLoading}
-              sx={{ mb: 2 }}
+              sx={{
+                mb: 2,
+                "& .MuiOutlinedInput-root": {
+                  fontSize: "16px",
+                },
+                "& .MuiInputLabel-root.Mui-focused": { color: colors.primary[100] },
+              }}
               InputProps={{
                 startAdornment: (
                   <InputAdornment position="start">
@@ -414,23 +444,7 @@ const Login = ({ setIsLoggedIn }) => {
           </Button>
         </Paper>
       </Container>
-      
-      {/* Notifications */}
-      <Snackbar 
-        open={notification.open} 
-        autoHideDuration={6000} 
-        onClose={handleCloseNotification}
-        anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
-      >
-        <Alert 
-          onClose={handleCloseNotification} 
-          severity={notification.type} 
-          sx={{ width: '100%' }}
-          variant="filled"
-        >
-          {notification.message}
-        </Alert>
-      </Snackbar>
+      <ToastContainer />
     </Box>
   );
 };

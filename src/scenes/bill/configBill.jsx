@@ -1,8 +1,9 @@
-import { useState, useEffect, forwardRef } from "react";
+import { useState, useEffect } from "react";
 import { Box, Button, TextField, Typography, useTheme, 
   Card, CardContent, IconButton, Divider, FormControl,
-  Modal, useMediaQuery, RadioGroup, Radio, FormControlLabel, 
-  Alert, Snackbar } from "@mui/material";
+  Modal, useMediaQuery, RadioGroup, Radio, FormControlLabel } from "@mui/material";
+import { toast, ToastContainer } from "react-toastify";
+import "react-toastify/dist/ReactToastify.css";
 import { tokens } from "../../theme";
 import Header from "../../components/Header";
 import AddIcon from "@mui/icons-material/Add";
@@ -12,11 +13,6 @@ import SaveIcon from "@mui/icons-material/Save";
 import CloseIcon from "@mui/icons-material/Close";
 import configBillApi from "../../services/configBill";
 
-// Custom Alert component to fix prop type warning
-const CustomAlert = forwardRef(function CustomAlert(props, ref) {
-  return <Alert ref={ref} {...props} />;
-});
-
 const ConfigBill = () => {
   const theme = useTheme();
   const colors = tokens(theme.palette.mode);
@@ -25,12 +21,7 @@ const ConfigBill = () => {
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
 
   const [loading, setLoading] = useState(false);
-  const [alert, setAlert] = useState({
-    open: false,
-    message: "",
-    severity: "success"
-  });
-
+  
   // Add state for billing cycle start date
   const [billingStartDate, setBillingStartDate] = useState(1);
 
@@ -196,8 +187,8 @@ const ConfigBill = () => {
         );
       }
       
-      // Check for data or message indicating success
-      if (response.data) {
+      // // Check for data or message indicating success
+      // if (response.data) {
         // Fetch updated list
         fetchStairPriceConfig();
         setTierModalOpen(false);
@@ -205,9 +196,9 @@ const ConfigBill = () => {
           "Tier updated successfully!" : 
           "New tier added successfully!"
         );
-      } else {
-        throw new Error(response.message || "Unknown error");
-      }
+      // } else {
+      //   throw new Error(response.message || "Unknown error");
+      // }
       
     } catch (error) {
       console.error('Error saving tier:', error);
@@ -246,7 +237,7 @@ const ConfigBill = () => {
         );
       }
       
-      if (response.data) {
+      // if (response.data) {
         // Fetch updated list
         fetchPercentPriceConfig();
         setPercentageModalOpen(false);
@@ -254,9 +245,9 @@ const ConfigBill = () => {
           "Percentage price updated successfully!" : 
           "New percentage price added successfully!")
         );
-      } else {
-        throw new Error(response.message || "Unknown error");
-      }
+      // } else {
+      //   throw new Error(response.message || "Unknown error");
+      // }
       
     } catch (error) {
       console.error('Error saving percentage price:', error);
@@ -272,17 +263,17 @@ const ConfigBill = () => {
       setLoading(true);
       const response = await configBillApi.editOnePriceConfig(Number(singlePrice));
       
-      if (response.data) {
+      // if (response.data) {
         showAlert(response.message || "Single price updated successfully!");
         // Update local state if needed
         setSinglePrice(response.data.price);
         setOnePriceId(response.data.id);
-      } else {
-        throw new Error(response.message || "Unknown error");
-      }
+      // } else {
+      //   throw new Error(response.message || "Unknown error");
+      // }
     } catch (error) {
       console.error('Error saving single price:', error);
-      showAlert('Failed to save single price. Please try again.', "error");
+      showAlert('Lỗi khi lưu giá điện theo bậc', "error");
     } finally {
       setLoading(false);
     }
@@ -322,7 +313,7 @@ const ConfigBill = () => {
       }
     } catch (error) {
       console.error("Error fetching configuration type:", error);
-      showAlert("Failed to load configuration type", "error");
+      // showAlert("Failed to load configuration type", "error");
     } finally {
       setLoading(false);
     }
@@ -394,26 +385,26 @@ const ConfigBill = () => {
       setLoading(true);
       const response = await configBillApi.getStairPriceConfig();
       
-      if (response.data) {
+      // if (response.data) {
         // Transform API data to match component state structure
-        const formattedData = response.data.map(item => ({
+        const formattedData = response.data?.map(item => ({
           id: item.id,
           min: item.minKwh,
           max: item.maxKwh || null,
           price: item.price,
-          name: `Tier ${item.step} (${item.minKwh}-${item.maxKwh || '∞'} kWh)`,
+          name: `Tier ${item.step} (${item.minKwh}-${item.maxKwh || 'Vô cùng'} kWh)`,
           step: item.step
-        }));
+        })) || [];
         
         // Sort tiers by step number
         formattedData.sort((a, b) => a.step - b.step);
         setPriceTiers(formattedData);
-      } else {
-        throw new Error(response.message || "Failed to fetch tier data");
-      }
+      // } else {
+      //   throw new Error(response.message || "Failed to fetch tier data");
+      // }
     } catch (error) {
       console.error("Error fetching stair price config:", error);
-      showAlert("Failed to load tiered pricing configuration", "error");
+      showAlert("Lỗi khi tải cấu hình giá theo bậc", "error");
     } finally {
       setLoading(false);
     }
@@ -425,19 +416,19 @@ const ConfigBill = () => {
       setLoading(true);
       const response = await configBillApi.getPercentPriceConfig();
       
-      if (response.data) {
+      // if (response.data) {
         // Transform API data to match component state structure
-        const formattedData = response.data.map(item => ({
+        const formattedData = response.data?.map(item => ({
           id: item.id,
           name: item.name,
           price: item.price,
           percentage: item.percent
-        }));
+        })) || [];
         
         setPercentagePrices(formattedData);
-      } else {
-        throw new Error(response.message || "Failed to fetch percentage price data");
-      }
+      // } else {
+      //   throw new Error(response.message || "Failed to fetch percentage price data");
+      // }
     } catch (error) {
       console.error("Error fetching percentage price config:", error);
       showAlert("Failed to load percentage price configuration", "error");
@@ -451,14 +442,14 @@ const ConfigBill = () => {
     try {
       setLoading(true);
       const response = await configBillApi.getStartBillingDate();
-      if (response.data) {
-        setBillingStartDate(response.data.billingCycleStartDay);
-      } else {
-        throw new Error(response.message || "Failed to fetch billing start date");
-      }
+      // if (response.data) {
+        setBillingStartDate(response.data?.billingCycleStartDay);
+      // } else {
+      //   throw new Error(response.message || "Failed to fetch billing start date");
+      // }
     } catch (error) {
       console.error("Error fetching billing start date:", error);
-      showAlert("Failed to load billing start date", "error");
+      // showAlert("Failed to load billing start date", "error");
     } finally {
       setLoading(false);
     }
@@ -512,12 +503,12 @@ const ConfigBill = () => {
     try {
       setLoading(true);
       const response = await configBillApi.getOnePriceConfig();
-      if (response.data) {
+      // if (response.data) {
         setSinglePrice(response.data.price);
         setOnePriceId(response.data.id);
-      } else {
-        throw new Error(response.message || "Failed to fetch single price data");
-      }
+      // } else {
+      //   throw new Error(response.message || "Failed to fetch single price data");
+      // }
     } catch (error) {
       console.error("Error fetching one price config:", error);
       showAlert("Failed to load single price configuration", "error");
@@ -526,13 +517,17 @@ const ConfigBill = () => {
     }
   };
 
-  // Show alert helper
+  // toastify
   const showAlert = (message, severity = "success") => {
-    setAlert({
-      open: true,
-      message,
-      severity
-    });
+    if (severity === "error") {
+      toast.error(message);
+    } else if (severity === "warning") {
+      toast.warning(message);
+    } else if (severity === "info") {
+      toast.info(message);
+    } else {
+      toast.success(message);
+    }
   };
 
   // Modal style configuration
@@ -554,26 +549,13 @@ const ConfigBill = () => {
   return (
     <Box m={{ xs: "10px", sm: "20px" }}>
       <Header 
-        title="ELECTRICITY BILL CONFIGURATION" 
-        subtitle="Set up pricing tiers" 
+        title="Cấu hình giá điện" 
+        subtitle="Thiết lập các mức giá" 
       />
       
-      {/* Snackbar with fixed implementation */}
-      <Snackbar
-        open={alert.open}
-        autoHideDuration={6000}
-        onClose={() => setAlert({...alert, open: false})}
-        anchorOrigin={{ vertical: "top", horizontal: "center" }}
-      >
-        <CustomAlert 
-          onClose={() => setAlert({...alert, open: false})} 
-          severity={alert.severity} 
-          sx={{ width: '100%' }}
-        >
-          {alert.message}
-        </CustomAlert>
-      </Snackbar>
-
+      {/* Add ToastContainer to render toasts */}
+      <ToastContainer />
+      
       <Box
         display="grid"
         gridTemplateColumns={{ xs: "1fr", md: "repeat(12, 1fr)" }}
@@ -589,7 +571,7 @@ const ConfigBill = () => {
                 fontWeight="bold"
                 mb={2}
               >
-                Active Configuration Selection
+                Cách tính giá điện
               </Typography>
               
               <Divider sx={{ mb: 2, borderColor: colors.grey[700] }} />
@@ -609,17 +591,17 @@ const ConfigBill = () => {
                     <FormControlLabel 
                       value="tiered" 
                       control={<Radio sx={{ '&.Mui-checked': {color: colors.primary[100]} }}/>} 
-                      label="Tiered Pricing" 
+                      label="Giá điện theo bậc" 
                     />
                     <FormControlLabel 
                       value="single" 
                       control={<Radio sx={{ '&.Mui-checked': {color: colors.primary[100]} }}/>} 
-                      label="Single Price" 
+                      label="Giá điện theo mức đơn" 
                     />
                     <FormControlLabel 
                       value="percentage" 
                       control={<Radio sx={{ '&.Mui-checked': {color: colors.primary[100]} }}/>} 
-                      label="Percentage-based Pricing" 
+                      label="Giá điện theo phần trăm" 
                     />
                   </RadioGroup>
                 </FormControl>
@@ -631,8 +613,11 @@ const ConfigBill = () => {
                   onClick={handleSaveConfigType}
                   disabled={loading}
                   size={isMobile ? "small" : "medium"}
+                  sx={{
+                    fontSize: "14px",
+                  }}
                 >
-                  Save Configuration Type
+                  Lưu
                 </Button>
               </Box>
             </CardContent>
@@ -649,7 +634,7 @@ const ConfigBill = () => {
                 fontWeight="bold"
                 mb={2}
               >
-                Billing Cycle Configuration
+                Cấu hình ngày bắt đầu chu kỳ
               </Typography>
               
               <Divider sx={{ mb: 2, borderColor: colors.grey[700] }} />
@@ -667,14 +652,19 @@ const ConfigBill = () => {
                 }}
               >
                 <TextField
-                  label="Billing Cycle Start Day (1-28)"
+                  label="Ngày bắt đầu tính tiền điện (1-28)"
                   value={billingStartDate}
                   onChange={handleBillingStartDateChange}
                   size={isMobile ? "small" : "medium"}
                   disabled={loading}
                   type="number"
                   inputProps={{ min: 1, max: 28 }}
-                  helperText="Enter a day between 1 and 28"
+                  sx={{
+                    "& .MuiOutlinedInput-root": {
+                      fontSize: "16px",
+                    },
+                    "& .MuiInputLabel-root.Mui-focused": { color: colors.primary[100] },
+                  }}
                 />
                 <Button
                   variant="contained"
@@ -683,8 +673,11 @@ const ConfigBill = () => {
                   onClick={handleSaveBillingStartDate}
                   disabled={loading}
                   size={isMobile ? "small" : "medium"}
+                  sx={{
+                    fontSize: "14px",
+                  }}
                 >
-                  {loading ? "Saving..." : "Save"}
+                  {loading ? "Lưu..." : "Lưu"}
                 </Button>
               </Box>
             </CardContent>
@@ -701,7 +694,7 @@ const ConfigBill = () => {
                 fontWeight="bold"
                 mb={2}
               >
-                Single Price Configuration
+                Giá điện theo mức đơn
               </Typography>
               
               <Divider sx={{ mb: 2, borderColor: colors.grey[700] }} />
@@ -719,11 +712,17 @@ const ConfigBill = () => {
                 }}
               >
                 <TextField
-                  label="Price (VND/kWh)"
+                  label="Giá (VND/kWh)"
                   value={singlePrice}
                   onChange={handleSinglePriceChange}
                   size={isMobile ? "small" : "medium"}
                   disabled={loading}
+                  sx={{
+                    "& .MuiOutlinedInput-root": {
+                      fontSize: "16px",
+                    },
+                    "& .MuiInputLabel-root.Mui-focused": { color: colors.primary[100] },
+                  }}
                 />
                 <Button
                   variant="contained"
@@ -732,8 +731,11 @@ const ConfigBill = () => {
                   onClick={handleSaveSinglePrice}
                   disabled={loading}
                   size={isMobile ? "small" : "medium"}
+                  sx={{
+                    fontSize: "14px",
+                  }}
                 >
-                  {loading ? "Saving..." : "Save"}
+                  {loading ? "Lưu..." : "Lưu"}
                 </Button>
               </Box>
             </CardContent>
@@ -757,7 +759,7 @@ const ConfigBill = () => {
                   color={colors.grey[100]} 
                   fontWeight="bold"
                 >
-                  Tiered Pricing
+                  Giá điện theo bậc
                 </Typography>
                 <Button
                   variant="contained"
@@ -765,8 +767,11 @@ const ConfigBill = () => {
                   startIcon={<AddIcon />}
                   onClick={() => openTierModal()}
                   size={isMobile ? "small" : "medium"}
+                  sx={{
+                    fontSize: "14px",
+                  }}
                 >
-                  Add Tier
+                  Thêm
                 </Button>
               </Box>
               
@@ -807,7 +812,7 @@ const ConfigBill = () => {
                       gridColumn: { xs: "span 1", sm: "span 1", md: "span 1" } 
                     }}
                   >
-                    <Typography variant={isMobile ? "body2" : "body1"} mr={1}>Range:</Typography>
+                    <Typography variant={isMobile ? "body2" : "body1"} mr={1}>Khoảng:</Typography>
                     <Typography variant={isMobile ? "body2" : "body1"} fontWeight="medium">
                       {tier.min} - {tier.max === null ? "vô cùng" : tier.max} kWh
                     </Typography>
@@ -821,7 +826,7 @@ const ConfigBill = () => {
                       gridColumn: { xs: "span 1", sm: "span 1", md: "span 1" } 
                     }}
                   >
-                    <Typography variant={isMobile ? "body2" : "body1"} mr={1}>Price:</Typography>
+                    <Typography variant={isMobile ? "body2" : "body1"} mr={1}>Giá:</Typography>
                     <Typography 
                       variant={isMobile ? "body2" : "body1"} 
                       fontWeight="medium" 
@@ -887,7 +892,7 @@ const ConfigBill = () => {
                   color={colors.grey[100]} 
                   fontWeight="bold"
                 >
-                  Percentage-based Pricing
+                  Giá điện theo phần trăm
                 </Typography>
                 <Button
                   variant="contained"
@@ -895,8 +900,11 @@ const ConfigBill = () => {
                   startIcon={<AddIcon />}
                   onClick={() => openPercentageModal()}
                   size={isMobile ? "small" : "medium"}
+                  sx={{
+                    fontSize: "14px",
+                  }}
                 >
-                  Add Type
+                  Thêm
                 </Button>
               </Box>
               
@@ -1028,42 +1036,66 @@ const ConfigBill = () => {
           {/* Modal content */}
           <Box id="modal-tier-description" sx={{ mt: 2 }}>
             <TextField
-              label="Tier Name"
+              label="Tên bậc giá"
               name="name"
               value={newTier.name}
               onChange={handleTierInputChange}
               fullWidth
               margin="normal"
               size={isMobile ? "small" : "medium"}
-              sx={{ mt: { xs: 1, sm: 2 } }}
+              sx={{ 
+                mt: { xs: 1, sm: 2 },
+                "& .MuiOutlinedInput-root": {
+                      fontSize: "16px",
+                    },
+                "& .MuiInputLabel-root.Mui-focused": { color: colors.primary[100] }
+              }}
             />
             <TextField
-              label="Minimum kWh"
+              label="kWh cận dưới"
               name="min"
               value={newTier.min}
               onChange={handleTierInputChange}
               fullWidth
               margin="normal"
               size={isMobile ? "small" : "medium"}
+              sx={{ 
+                "& .MuiOutlinedInput-root": {
+                      fontSize: "16px",
+                    },
+                "& .MuiInputLabel-root.Mui-focused": { color: colors.primary[100] }
+              }}
             />
             <TextField
-              label="Maximum kWh (leave empty for unlimited)"
+              label="kWh cận trên (để trống nếu không giới hạn)"
               name="max"
               value={newTier.max === null ? "" : newTier.max}
               onChange={handleTierInputChange}
               fullWidth
               margin="normal"
-              helperText="Leave empty for unlimited"
+              helperText="Để trống nếu không giới hạn"
               size={isMobile ? "small" : "medium"}
+              sx={{
+                "& .MuiOutlinedInput-root": {
+                  fontSize: "16px",
+                },
+                "& .MuiInputLabel-root.Mui-focused": { color: colors.primary[100] }
+              }}
             />
             <TextField
-              label="Price (VND/kWh)"
+              label="Giá (VND/kWh)"
               name="price"
               value={newTier.price}
               onChange={handleTierInputChange}
               fullWidth
               margin="normal"
               size={isMobile ? "small" : "medium"}
+              sx={{ 
+                "& .MuiOutlinedInput-root": {
+                      fontSize: "16px",
+                    },
+                "& .MuiInputLabel-root.Mui-focused": { color: colors.primary[100] }
+              }}
             />
           </Box>
           
@@ -1073,8 +1105,11 @@ const ConfigBill = () => {
               onClick={() => setTierModalOpen(false)} 
               disabled={loading}
               size={isMobile ? "small" : "medium"}
+              sx={{ 
+                color: colors.grey[100], 
+              }}
             >
-              Cancel
+              Hủy
             </Button>
             <Button 
               onClick={handleSaveTier}
@@ -1082,8 +1117,11 @@ const ConfigBill = () => {
               color="secondary"
               disabled={loading}
               size={isMobile ? "small" : "medium"}
+              sx={{
+                fontSize: "14px",
+              }}
             >
-              {loading ? "Saving..." : "Save"}
+              {loading ? "Lưu..." : "Lưu"}
             </Button>
           </Box>
         </Box>
@@ -1116,32 +1154,50 @@ const ConfigBill = () => {
           {/* Modal content */}
           <Box id="modal-percentage-description" sx={{ mt: 2 }}>
             <TextField
-              label="Price Type Name"
+              label="Tên loại giá"
               name="name"
               value={newPercentage.name}
               onChange={handlePercentageInputChange}
               fullWidth
               margin="normal"
               size={isMobile ? "small" : "medium"}
-              sx={{ mt: { xs: 1, sm: 2 } }}
+              sx={{
+                mt: { xs: 1, sm: 2 },
+                "& .MuiOutlinedInput-root": {
+                      fontSize: "16px",
+                    },
+                "& .MuiInputLabel-root.Mui-focused": { color: colors.primary[100] }
+              }}
             />
             <TextField
-              label="Percentage (%)"
+              label="Phần trăm (%)"
               name="percentage"
               value={newPercentage.percentage}
               onChange={handlePercentageInputChange}
               fullWidth
               margin="normal"
               size={isMobile ? "small" : "medium"}
+              sx={{
+                "& .MuiOutlinedInput-root": {
+                  fontSize: "16px",
+                },
+                "& .MuiInputLabel-root.Mui-focused": { color: colors.primary[100] }
+              }}
             />
             <TextField
-              label="Price (VND/kWh)"
+              label="Giá (VND/kWh)"
               name="price"
               value={newPercentage.price}
               onChange={handlePercentageInputChange}
               fullWidth
               margin="normal"
               size={isMobile ? "small" : "medium"}
+              sx={{
+                "& .MuiOutlinedInput-root": {
+                  fontSize: "16px",
+                },
+                "& .MuiInputLabel-root.Mui-focused": { color: colors.primary[100] }
+              }}
             />
           </Box>
           
@@ -1151,8 +1207,11 @@ const ConfigBill = () => {
               onClick={() => setPercentageModalOpen(false)} 
               disabled={loading}
               size={isMobile ? "small" : "medium"}
+              sx={{ 
+                color: colors.grey[100], 
+              }}
             >
-              Cancel
+              Hủy
             </Button>
             <Button 
               onClick={handleSavePercentage}
@@ -1160,8 +1219,11 @@ const ConfigBill = () => {
               color="secondary"
               disabled={loading}
               size={isMobile ? "small" : "medium"}
+              sx={{
+                fontSize: "14px",
+              }}
             >
-              {loading ? "Saving..." : "Save"}
+              {loading ? "Lưu..." : "Lưu"}
             </Button>
           </Box>
         </Box>
