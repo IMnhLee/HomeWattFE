@@ -14,6 +14,11 @@ const energyApi = {
         };
         const response = await api.post("/energy/consumption", data);
         return response.data;
+    },
+
+    async getLineEnergyData() {
+        const response = await api.get("/energy/line-data");
+        return response.data;
     }
 }
 

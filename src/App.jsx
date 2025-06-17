@@ -19,6 +19,7 @@ import FloorRoomManagement from "./scenes/devices/FloorRoomManagement";
 import MeasurementDevices from "./scenes/devices/MeasurementDevices";
 import ConfigBill from "./scenes/bill/configBill";
 import ConsumptionPage from "./scenes/consumptions";
+import VirtualLine from "./scenes/virtualLine";
 import Profile from "./scenes/profile/profile";
 import ManageUser from "./scenes/admin/manageUser";
 
@@ -135,7 +136,11 @@ function App() {
                     <Profile />
                   </PrivateRoute>
                 } />
-                
+                <Route path="/virtual-line" element={
+                  <PrivateRoute roles={["user"]}>
+                    <VirtualLine />
+                  </PrivateRoute>
+                } />
                 {/* Admin only routes */}
                 <Route path="/admin/users" element={
                   <PrivateRoute roles={["admin"]}>

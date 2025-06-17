@@ -10,6 +10,14 @@ import LocalAtmIcon from '@mui/icons-material/LocalAtm';
 import PaymentsIcon from '@mui/icons-material/Payments';
 import energyApi from "../../services/energy"; // Import the energy API
 
+// Device colors palette (used for API data)
+const DEVICE_COLORS = [
+  "#6870fa", "#4cceac", "#ffcc00", "#db4f4a", "#a3a3a3", 
+  "#7e57c2", "#26c6da", "#ff7043", "#008080", "#ff69b4",
+  "#8a2be2", "#00ff00", "#ff4500", "#4b0082", "#ffd700",
+  "#00bfff", "#ff1493", "#00ced1", "#ff6347", "#7fff00"
+];
+
 const Dashboard = () => {
   const theme = useTheme();
   const colors = tokens(theme.palette.mode);
@@ -67,11 +75,12 @@ const Dashboard = () => {
           };
         });
         
-        // Create category distribution for pie chart
-        const categoryDistribution = Object.entries(apiData.lineNames).map(([deviceId, name]) => ({
+        // Create category distribution for pie chart with device colors
+        const categoryDistribution = Object.entries(apiData.lineNames).map(([deviceId, name], index) => ({
           name: name,
           value: apiData.lineEnergy[deviceId] || 0,
-          cost: apiData.lineCosts[deviceId] || 0
+          cost: apiData.lineCosts[deviceId] || 0,
+          color: DEVICE_COLORS[index % DEVICE_COLORS.length] // Add color property
         })).filter(item => item.value > 0); // Remove zero-consumption devices
         
         setConsumptionData({
@@ -98,6 +107,7 @@ const Dashboard = () => {
       name: cat.name,
       type: 'bar',
       stack: 'total',
+      itemStyle: { color: cat.color }, // Use device color
       // emphasis: { focus: 'series' }, // Highlight on hover
       data: consumptionData.hourlyData.map(hour => [
         hour.date, 
@@ -130,8 +140,13 @@ const Dashboard = () => {
           let sum = 0;
           params.forEach(param => sum += param.value[1]);
           
-          // Sort by value (descending)
-          params.sort((a, b) => b.value[1] - a.value[1]);
+          // Sort by the same order as series (categoryDistribution order)
+          const seriesOrder = consumptionData.categoryDistribution.map(cat => cat.name);
+          params.sort((a, b) => {
+            const indexA = seriesOrder.indexOf(a.seriesName);
+            const indexB = seriesOrder.indexOf(b.seriesName);
+            return indexB - indexA;
+          });
           
           // Add each device with value and percentage
           params.forEach(param => {
@@ -200,14 +215,8 @@ const Dashboard = () => {
           }
         }
       },
-      series: series,
-      color: [
-        colors.blueAccent[500], 
-        colors.greenAccent[500], 
-        colors.redAccent[500],
-        colors.yellowAccent[500],
-        colors.grey[400]
-      ]
+      series: series
+      // Remove the fixed color array since we're using device colors
     };
   };
 
@@ -217,26 +226,14 @@ const Dashboard = () => {
       return {
         series: consumptionData.categoryDistribution.map(cat => parseFloat(cat.value.toFixed(2))),
         labels: consumptionData.categoryDistribution.map(cat => cat.name),
-        colors: [
-          colors.blueAccent[500], 
-          colors.greenAccent[500], 
-          colors.redAccent[500],
-          colors.yellowAccent[500],
-          colors.grey[400]
-        ],
+        colors: consumptionData.categoryDistribution.map(cat => cat.color), // Use device colors
         unit: "kWh"
       };
     } else {
       return {
         series: consumptionData.categoryDistribution.map(cat => parseFloat(cat.cost.toFixed(0))),
         labels: consumptionData.categoryDistribution.map(cat => cat.name),
-        colors: [
-          colors.blueAccent[500], 
-          colors.greenAccent[500], 
-          colors.redAccent[500],
-          colors.yellowAccent[500],
-          colors.grey[400]
-        ],
+        colors: consumptionData.categoryDistribution.map(cat => cat.color), // Use device colors
         unit: "VND"
       };
     }

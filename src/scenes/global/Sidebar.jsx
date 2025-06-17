@@ -22,6 +22,8 @@ import SettingsOutlinedIcon from '@mui/icons-material/SettingsOutlined';
 import DevicesOtherOutlinedIcon from '@mui/icons-material/DevicesOtherOutlined';
 import ApartmentOutlinedIcon from '@mui/icons-material/ApartmentOutlined';
 import ElectricMeterOutlinedIcon from '@mui/icons-material/ElectricMeterOutlined';
+import ElectricalServicesOutlinedIcon from '@mui/icons-material/ElectricalServicesOutlined';
+import CastOutlinedIcon from '@mui/icons-material/CastOutlined';
 
 import { FaAngleDoubleLeft, FaAngleDoubleRight } from "react-icons/fa";
 
@@ -89,47 +91,48 @@ const ProSidebar = ({
   const menuConfig = [
  
     {
-      title: "EMS",
+      title: "Giám sát",
       items: [
         {
-          title: "Dashboard",
+          title: "Thống kê",
           icon: <DashboardOutlinedIcon />,
           subItems: [
-            { title: 'Overview', to: "/", icon: <MonitorHeartOutlinedIcon /> },
+            { title: 'Tổng quan', to: "/", icon: <MonitorHeartOutlinedIcon /> },
             // { title: "Applicant", to: "/monitoring/app", icon: <SpeedIcon /> },
-            { title: "Usage", to: "/consumptions", icon: <TimelineOutlinedIcon /> },
+            { title: "Điện năng tiêu thụ", to: "/consumptions", icon: <TimelineOutlinedIcon /> },
             // { title: "Emission", to: "/monitoring/emission", icon: <Co2OutlinedIcon /> },
           ],
           defaultOpen: false, // Thêm lại defaultOpen cho Dashboard
         },
-        { title:"Bill Config", to: "/bill/config", icon: <AccountTreeOutlinedIcon /> },
-        { title: "Report", to: "/report", icon: <SummarizeOutlinedIcon /> },
+        { title:"Cấu hình chi phí", to: "/bill/config", icon: <SettingsOutlinedIcon /> },
+        // { title: "Report", to: "/report", icon: <SummarizeOutlinedIcon /> },
       ],
     },
     {
-      title: "Manage Devices",
+      title: "Quản lý thiết bị",
       items: [
         {
-          title: "Devices",
-          icon: <DashboardOutlinedIcon />,
+          title: "Thiết bị",
+          icon: <CastOutlinedIcon />,
           subItems: [
-            { title: "List", to: "/devices/list", icon: <DevicesOtherOutlinedIcon /> },
-            { title: "Floor&Room", to: "/devices/room", icon: <ApartmentOutlinedIcon /> },
-            { title: "Monitoring", to: "/devices/measurement", icon: <ElectricMeterOutlinedIcon /> },
+            { title: "Thiết bị tiêu thụ", to: "/devices/list", icon: <DevicesOtherOutlinedIcon /> },
+            { title: "Quản lý vị trí", to: "/devices/room", icon: <ApartmentOutlinedIcon /> },
+            { title: "Thiết bị đo", to: "/devices/measurement", icon: <ElectricMeterOutlinedIcon /> },
           ],
           defaultOpen: false, // Thêm lại defaultOpen cho Dashboard
         },
         // { title: "Settings", to: "/setting", icon: <SettingsOutlinedIcon /> },
         // { title: "report", to: "/report", icon: <QueryStatsOutlinedIcon /> },
+        { title: "Tạo lộ đo ảo", to: "/virtual-line", icon: <ElectricalServicesOutlinedIcon /> },
       ],
     },
-    // {
-    //   title: "User",
-    //   items: [
-    //     { title: "Manage Team", to: "/team", icon: <PeopleOutlinedIcon /> },
-    //     { title: "Contacts Information", to: "/faq", icon: <ContactsOutlinedIcon /> },
-    //   ],
-    // },
+    {
+      title: "Tài khoản",
+      items: [
+        { title: "Hồ sơ", to: "/profile", icon: <PeopleOutlinedIcon /> },
+        // { title: "Contacts Information", to: "/faq", icon: <ContactsOutlinedIcon /> },
+      ],
+    },
     // {
     //   title: "Admin",
     //   role: ["admin", "superadmin"],

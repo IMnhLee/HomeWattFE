@@ -439,7 +439,7 @@ const ManageUser = () => {
         )}
 
         <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: 3 }}>
-          <Button onClick={closeModal} variant="contained" color="primary">
+          <Button onClick={closeModal} variant="contained" color="secondary">
             Đóng
           </Button>
         </Box>

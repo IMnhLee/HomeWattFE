@@ -54,7 +54,7 @@ const Report = () => {
   // Prepare chart options
   const chartOptions = {
     title: {
-      text: 'Electricity Usage and Cost',
+      text: 'Điện năng Tiêu Thụ và Chi Phí',
       left: 'center',
       textStyle: {
         color: colors.grey[100]
@@ -195,7 +195,7 @@ const Report = () => {
           }}
         >
           <Typography variant="h5" color={colors.grey[100]}>
-            Total Consumption
+            Tổng Tiêu Thụ Điện
           </Typography>
           <Box
             display="flex"
@@ -222,7 +222,7 @@ const Report = () => {
           }}
         >
           <Typography variant="h5" color={colors.grey[100]}>
-            Total Cost
+            Tổng chi phí
           </Typography>
           <Box
             display="flex"
@@ -249,7 +249,7 @@ const Report = () => {
           }}
         >
           <Typography variant="h5" color={colors.grey[100]}>
-            Average Monthly Usage
+            Trung bình Tiêu Thụ hàng tháng
           </Typography>
           <Box
             display="flex"
@@ -276,7 +276,7 @@ const Report = () => {
           }}
         >
           <Typography variant="h5" color={colors.grey[100]}>
-            Average Monthly Cost
+            Trung bình chi phí hàng tháng
           </Typography>
           <Box
             display="flex"

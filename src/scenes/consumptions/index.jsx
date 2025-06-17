@@ -217,6 +217,14 @@ const ConsumptionPage = () => {
             let content = `<div style="margin: 0 0 5px; font-weight: bold">${header}</div>`;
             let total = 0;
             
+            // Sort
+            const deviceOrder = filteredDevices.map(device => device.name);
+            params.sort((a, b) => {
+              const indexA = deviceOrder.indexOf(a.seriesName);
+              const indexB = deviceOrder.indexOf(b.seriesName);
+              return indexB - indexA; // Reverse order
+            });
+            
             params.forEach(param => {
               content += `<div style="display: flex; justify-content: space-between; margin: 3px 0">
                 <div>
@@ -472,107 +480,114 @@ const ConsumptionPage = () => {
       <Box 
         display="grid" 
         gridTemplateColumns="repeat(12, 1fr)" 
-        gap="16px"
+        gap="20px"
         mb="24px"
       >
         {/* Total consumption card */}
-        <Box gridColumn={{ xs: "span 12", sm: "span 6", md: "span 4" }}>
-          <Paper
-            sx={{
-              p: 2,
-              bgcolor: colors.primary[400],
-              boxShadow: "0px 2px 10px rgba(0, 0, 0, 0.1)",
-              borderRadius: 2,
-              height: '100%'
-            }}
+        <Box 
+          gridColumn={{ xs: "span 12", sm: "span 6", md: "span 4" }}
+          backgroundColor={colors.primary[400]}
+          component={Paper}
+          elevation={3}
+          sx={{ borderRadius: "12px", p: 3 }}
+        >
+          <Box
+            display="flex"
+            justifyContent="space-between"
+            alignItems="center"
+            mb={2}
           >
-            <Stack direction="row" justifyContent="space-between" alignItems="center">
-              <Typography variant="h5">Tổng điện năng tiêu thụ</Typography>
-              <Tooltip title="Total energy consumed during the selected period">
-                <InfoOutlined fontSize="small" />
-              </Tooltip>
-            </Stack>
-            <Typography variant="h2" sx={{ mt: 2, fontWeight: 'bold', color: colors.greenAccent[500] }}>
-              {stats.total.toFixed(2)} {energyUnit}
+            <Typography variant="h5" color={colors.grey[100]} fontWeight="600">
+              Tổng điện năng tiêu thụ
             </Typography>
-          </Paper>
+            <Tooltip title="Total energy consumed during the selected period">
+              <InfoOutlined sx={{ color: colors.greenAccent[500], fontSize: 32 }} />
+            </Tooltip>
+          </Box>
+          <Typography variant="h3" fontWeight="bold" sx={{ color: colors.greenAccent[500] }}>
+            {stats.total.toFixed(2)} {energyUnit}
+          </Typography>
         </Box>
         
         {/* Highest consumption card */}
-        <Box gridColumn={{ xs: "span 12", sm: "span 6", md: "span 4" }}>
-          <Paper
-            sx={{
-              p: 2,
-              bgcolor: colors.primary[400],
-              boxShadow: "0px 2px 10px rgba(0, 0, 0, 0.1)",
-              borderRadius: 2,
-              height: '100%'
-            }}
+        <Box 
+          gridColumn={{ xs: "span 12", sm: "span 6", md: "span 4" }}
+          backgroundColor={colors.primary[400]}
+          component={Paper}
+          elevation={3}
+          sx={{ borderRadius: "12px", p: 3 }}
+        >
+          <Box
+            display="flex"
+            justifyContent="space-between"
+            alignItems="center"
+            mb={2}
           >
-            <Stack direction="row" justifyContent="space-between" alignItems="center">
-              <Typography variant="h5">Tiêu thụ nhiều nhất</Typography>
-              <Tooltip title={`Thời điểm có mức tiêu thụ cao nhất trong khoảng thời gian đã chọn`}>
-                <InfoOutlined fontSize="small" />
-              </Tooltip>
-            </Stack>
-            <Typography variant="h2" sx={{ mt: 2, fontWeight: 'bold', color: colors.redAccent[500] }}>
-              {stats.highest.value?.toFixed(2)} {energyUnit}
+            <Typography variant="h5" color={colors.grey[100]} fontWeight="600">
+              Tiêu thụ nhiều nhất
             </Typography>
-            <Typography variant="body1" color={colors.grey[300]}>
-              {stats.highest.timestamp && (
-                viewType === 'daily' 
-                  ? format(stats.highest.timestamp, 'HH:mm') 
-                  : format(stats.highest.timestamp, 'MMM dd')
-              )}
-            </Typography>
-          </Paper>
+            <Tooltip title={`Thời điểm có mức tiêu thụ cao nhất trong khoảng thời gian đã chọn`}>
+              <InfoOutlined sx={{ color: colors.redAccent[500], fontSize: 32 }} />
+            </Tooltip>
+          </Box>
+          <Typography variant="h3" fontWeight="bold" sx={{ color: colors.redAccent[500] }}>
+            {stats.highest.value?.toFixed(2)} {energyUnit}
+          </Typography>
+          <Typography variant="body1" color={colors.grey[300]} sx={{ mt: 1 }}>
+            {stats.highest.timestamp && (
+              viewType === 'daily' 
+                ? format(stats.highest.timestamp, 'HH:mm') 
+                : format(stats.highest.timestamp, 'MMM dd')
+            )}
+          </Typography>
         </Box>
         
         {/* Top consumer card */}
-        <Box gridColumn={{ xs: "span 12", sm: "span 6", md: "span 4" }}>
-          <Paper
-            sx={{
-              p: 2,
-              bgcolor: colors.primary[400],
-              boxShadow: "0px 2px 10px rgba(0, 0, 0, 0.1)",
-              borderRadius: 2,
-              height: '100%',
-              display: 'flex',
-              flexDirection: 'column'
-            }}
+        <Box 
+          gridColumn={{ xs: "span 12", sm: "span 6", md: "span 4" }}
+          backgroundColor={colors.primary[400]}
+          component={Paper}
+          elevation={3}
+          sx={{ borderRadius: "12px", p: 3 }}
+        >
+          <Box
+            display="flex"
+            justifyContent="space-between"
+            alignItems="center"
+            mb={2}
           >
-            <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 1 }}>
-              <Typography variant="h5">Thiết bị tiêu thụ nhiều nhất</Typography>
-              <Tooltip title="Thiết bị tiêu thụ nhiều nhất trong khoảng thời gian đã chọn">
-                <InfoOutlined fontSize="small" />
-              </Tooltip>
-            </Stack>
-            
-            {stats.deviceBreakdown.length > 0 && (
-              <>
-                <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
-                  <Box 
-                    sx={{ 
-                      width: 15, 
-                      height: 15, 
-                      borderRadius: '50%', 
-                      bgcolor: stats.deviceBreakdown[0].color,
-                      mr: 1 
-                    }} 
-                  />
-                  <Typography variant="h4">
-                    {stats.deviceBreakdown[0].name}
-                  </Typography>
-                </Box>
-                <Typography variant="h2" sx={{ fontWeight: 'bold', color: colors.blueAccent[500] }}>
-                  {stats.deviceBreakdown[0].total.toFixed(2)} {energyUnit}
+            <Typography variant="h5" color={colors.grey[100]} fontWeight="600">
+              Thiết bị tiêu thụ nhiều nhất
+            </Typography>
+            <Tooltip title="Thiết bị tiêu thụ nhiều nhất trong khoảng thời gian đã chọn">
+              <InfoOutlined sx={{ color: colors.blueAccent[500], fontSize: 32 }} />
+            </Tooltip>
+          </Box>
+          
+          {stats.deviceBreakdown.length > 0 && (
+            <>
+              <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
+                <Box 
+                  sx={{ 
+                    width: 12, 
+                    height: 12, 
+                    borderRadius: '50%', 
+                    bgcolor: stats.deviceBreakdown[0].color,
+                    mr: 1 
+                  }} 
+                />
+                <Typography variant="h6" color={colors.grey[100]}>
+                  {stats.deviceBreakdown[0].name}
                 </Typography>
-                <Typography variant="body1" color={colors.grey[300]}>
-                  {((stats.deviceBreakdown[0].total / stats.total) * 100).toFixed(0)}% of total
-                </Typography>
-              </>
-            )}
-          </Paper>
+              </Box>
+              <Typography variant="h3" fontWeight="bold" sx={{ color: colors.blueAccent[500] }}>
+                {stats.deviceBreakdown[0].total.toFixed(2)} {energyUnit}
+              </Typography>
+              <Typography variant="body1" color={colors.grey[300]} sx={{ mt: 1 }}>
+                {((stats.deviceBreakdown[0].total / stats.total) * 100).toFixed(0)}% of total
+              </Typography>
+            </>
+          )}
         </Box>
       </Box>
       
@@ -580,49 +595,53 @@ const ConsumptionPage = () => {
       <Box 
         display="grid" 
         gridTemplateColumns="repeat(12, 1fr)" 
-        gap="16px"
+        gap="20px"
       >
         {/* Bar-line mixed chart */}
         <Box gridColumn={{ xs: "span 12", lg: "span 8" }}>
-          <Paper
+          <Box
+            backgroundColor={colors.primary[400]}
+            component={Paper}
+            elevation={3}
             sx={{
-              p: 2,
-              bgcolor: colors.primary[400],
-              boxShadow: "0px 2px 10px rgba(0, 0, 0, 0.1)",
-              borderRadius: 2,
+              borderRadius: "12px",
+              p: 3,
               height: 500
             }}
           >
-            <Typography variant="h5" sx={{ mb: 2 }}>
+            <Typography variant="h4" mb={2} fontWeight="bold" color={colors.grey[100]}>
               Điện năng tiêu thụ theo {viewType === 'daily' ? 'giờ' : 'ngày'}
               {filterType !== 'none' && (
-                <Box component="span" sx={{ ml: 1, color: colors.greenAccent[400], fontSize: '0.9em' }}>
+                <Box component="span" sx={{ ml: 1, color: colors.greenAccent[400], fontSize: '0.8em', fontWeight: 400 }}>
                   {filterType === 'floor' && selectedFloor ? ` - ${selectedFloor}` : ''}
                   {filterType === 'room' && selectedRoom ? ` - ${selectedRoom}` : ''}
                 </Box>
               )}
             </Typography>
-            <Box sx={{ height: "calc(100% - 40px)" }}>
+            <Box sx={{ height: "calc(100% - 60px)" }}>
               <StackBarChart 
                 customOptions={chartOptions} 
                 loading={!consumptionData.length} 
               />
             </Box>
-          </Paper>
+          </Box>
         </Box>
         
         {/* Device breakdown chart */}
         <Box gridColumn={{ xs: "span 12", lg: "span 4" }}>
-          <Paper
+          <Box
+            backgroundColor={colors.primary[400]}
+            component={Paper}
+            elevation={3}
             sx={{
-              p: 2,
-              bgcolor: colors.primary[400],
-              boxShadow: "0px 2px 10px rgba(0, 0, 0, 0.1)",
-              borderRadius: 2,
-              height: 500
+              borderRadius: "12px",
+              p: 3,
+              height: 500,
+              display: "flex",
+              flexDirection: "column"
             }}
           >
-            <Typography variant="h5" sx={{ mb: 2 }}>
+            <Typography variant="h4" mb={2} fontWeight="bold" color={colors.grey[100]}>
               {filterType === 'none' 
                 ? 'Các thiết bị tiêu thụ năng lượng' 
                 : filterType === 'floor' && selectedFloor 
@@ -644,49 +663,53 @@ const ConsumptionPage = () => {
             )}
             
             {/* Device Breakdown */}
-            <Stack spacing={2} sx={{ height: "calc(100% - 40px)", overflow: 'auto' }}>
-              {stats.deviceBreakdown.map((device) => (
-                <Paper 
-                  key={device.id}
-                  sx={{ 
-                    p: 2, 
-                    bgcolor: colors.primary[500],
-                    borderLeft: `4px solid ${device.color}`
-                  }}
-                >
-                  <Typography variant="h5" sx={{ mb: 1 }}>
-                    {device.name}
-                  </Typography>
-                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <Typography variant="h4" sx={{ fontWeight: 'bold' }}>
-                      {device.total.toFixed(2)} {energyUnit}
-                    </Typography>
-                    <Typography variant="body1" color={colors.grey[300]}>
-                      {((device.total / stats.total) * 100).toFixed(1)}%
-                    </Typography>
-                  </Box>
-                  <Box 
+            <Box sx={{ flexGrow: 1, overflow: 'auto' }}>
+              <Stack spacing={2}>
+                {stats.deviceBreakdown.map((device) => (
+                  <Box
+                    key={device.id}
                     sx={{ 
-                      mt: 1, 
-                      width: '100%', 
-                      height: 8, 
-                      bgcolor: colors.grey[700],
-                      borderRadius: 5,
-                      overflow: 'hidden'
+                      p: 2, 
+                      backgroundColor: colors.primary[500],
+                      borderRadius: "8px",
+                      borderLeft: `4px solid ${device.color}`,
+                      boxShadow: "0px 1px 3px rgba(0, 0, 0, 0.1)"
                     }}
                   >
+                    <Typography variant="h6" sx={{ mb: 1, color: colors.grey[100], fontWeight: 600 }}>
+                      {device.name}
+                    </Typography>
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
+                      <Typography variant="h5" sx={{ fontWeight: 'bold', color: colors.grey[100] }}>
+                        {device.total.toFixed(2)} {energyUnit}
+                      </Typography>
+                      <Typography variant="body1" color={colors.grey[300]}>
+                        {((device.total / stats.total) * 100).toFixed(1)}%
+                      </Typography>
+                    </Box>
                     <Box 
                       sx={{ 
-                        width: `${(device.total / stats.total) * 100}%`, 
-                        height: '100%',
-                        bgcolor: device.color
-                      }} 
-                    />
+                        width: '100%', 
+                        height: 6, 
+                        backgroundColor: colors.grey[700],
+                        borderRadius: 3,
+                        overflow: 'hidden'
+                      }}
+                    >
+                      <Box 
+                        sx={{ 
+                          width: `${(device.total / stats.total) * 100}%`, 
+                          height: '100%',
+                          backgroundColor: device.color,
+                          borderRadius: 3
+                        }} 
+                      />
+                    </Box>
                   </Box>
-                </Paper>
-              ))}
-            </Stack>
-          </Paper>
+                ))}
+              </Stack>
+            </Box>
+          </Box>
         </Box>
       </Box>
       
