@@ -142,7 +142,10 @@ const ConsumptionPage = () => {
       setLoading(true);
       
       try {
-        const response = await energyApi.getConsumptionByDate(viewType, selectedDate);
+        // Chuyển đổi selectedDate để giữ nguyên giờ local khi gửi API
+        const adjustedDate = new Date(selectedDate.getTime() - selectedDate.getTimezoneOffset() * 60000);
+        
+        const response = await energyApi.getConsumptionByDate(viewType, adjustedDate);
         
         // Transform API data to the format expected by our component
         const transformedData = transformApiData(response);
