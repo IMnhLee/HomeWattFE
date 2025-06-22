@@ -14,6 +14,7 @@ import {
   IconButton,
   CircularProgress
 } from '@mui/material';
+import { GoogleLogin, useGoogleLogin } from '@react-oauth/google';
 import { styled } from '@mui/material/styles';
 import { useTheme } from "@mui/material";
 import { tokens } from "../../theme";
@@ -171,10 +172,38 @@ const Login = ({ setIsLoggedIn, setUserRole }) => {
     }
   };
 
-  const handleGoogleLogin = () => {
-    // Implement Google login integration
-    toast.info("Tính năng đăng nhập bằng Google đang được phát triển.");
-  };
+  const handleGoogleLogin = (credentialResponse ) => {
+      console.log(credentialResponse);
+      authApi.loginWithGoogle(credentialResponse.credential)
+        .then(response => {
+          // Handle successful login
+          console.log("Login successful:", response);
+
+          localStorage.setItem("access_token", JSON.stringify(response.data.tokens.accessToken));
+          localStorage.setItem("refresh_token", JSON.stringify(response.data.tokens.refreshToken));
+          
+          // Lưu thông tin người dùng
+          localStorage.setItem("user", JSON.stringify(response.data.user));
+          localStorage.setItem("logged", true);
+          
+          setIsLoggedIn(true);
+          setUserRole(response.data.user.role || "");
+          
+          toast.success("Đăng nhập bằng Google thành công!");
+          
+          // Chuyển hướng sau khi đăng nhập thành công
+          if (response.data.user.role === 'admin') {
+            navigate('/admin/users');
+          }
+          else if (response.data.user.role === 'user') {
+            navigate('/');
+          }
+        })
+        .catch(error => {
+          console.error("Login failed:", error);
+          toast.error(error.response.data.message || "Đăng nhập bằng Google thất bại. Vui lòng thử lại.");
+        });
+    }
 
   const handleNavigateToSignup = () => {
     navigate('/signup');
@@ -378,30 +407,14 @@ const Login = ({ setIsLoggedIn, setUserRole }) => {
             </Button>
             
             {/* Google login button */}
-            <Button
-              fullWidth
-              variant="contained"
-              startIcon={<GoogleIcon />}
-              onClick={handleGoogleLogin}
-              disabled={isLoading}
-              sx={{ 
-                mb: 3,
-                py: 1.5,
-                backgroundColor: "#ffffff",
-                color: "#757575",
-                fontSize: "16px",
-                fontWeight: "bold",
-                '&:hover': {
-                  backgroundColor: "#f1f1f1",
-                },
-                '&:disabled': {
-                  backgroundColor: "#e0e0e0",
-                  color: "#9e9e9e",
-                }
+            <GoogleLogin
+              onSuccess={handleGoogleLogin}
+              onError={() => toast.error("Đăng nhập bằng Google thất bại.")}
+              style={{
+                width: '100%',
+                marginBottom: '16px',
               }}
-            >
-              Đăng nhập bằng Google
-            </Button>
+            />
           </form>
           
           <Divider 

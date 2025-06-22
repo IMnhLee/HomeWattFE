@@ -41,6 +41,13 @@ const authApi = {
     });
     return response.data
   },
+
+  async loginWithGoogle(token) {
+    const response = await api.post("/auth/google-login", {
+      token: token,
+    });
+    return response.data
+  }
 };
 
 export default authApi;
