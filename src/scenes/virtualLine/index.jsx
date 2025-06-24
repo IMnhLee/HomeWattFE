@@ -144,9 +144,12 @@ const VirtualLine = () => {
           <Typography variant="h6" color={colors.grey[100]} mb={2} sx={{ fontSize: '18px' }}>
             Chọn lộ đo
           </Typography>
-          <Box display="grid" gridTemplateColumns="2fr 1fr 1fr" gap={2} alignItems="center">
+          <Box display="grid" gridTemplateColumns={{
+            xs: "1fr",            // Mobile: Single column
+            sm: "2fr 1fr 1fr"     // Tablet and up: Original layout
+          }} gap={2} alignItems="center">
             <FormControl fullWidth>
-              <InputLabel sx={{ color: colors.grey[100], fontSize: '16px' }}>
+              <InputLabel sx={{ color: colors.grey[100], fontSize: '16px', "&.Mui-focused": {color: colors.primary[100]}}}>
                 {loading ? "Đang tải..." : "Chọn lộ đo"}
               </InputLabel>
               <Select
@@ -195,7 +198,10 @@ const VirtualLine = () => {
         </Paper>
       </Box>
 
-      <Box display="grid" gridTemplateColumns="1fr 1fr" gap={3}>
+      <Box display="grid" gridTemplateColumns={{
+        xs: "1fr",            // Mobile: Single column (stacked)
+        md: "1fr 1fr"         // Desktop: Two columns side-by-side
+      }} gap={3}>
         {/* Bảng CỘNG */}
         <Card sx={{ backgroundColor: colors.primary[400] }}>
           <CardContent>
@@ -310,7 +316,11 @@ const VirtualLine = () => {
               <Typography variant="h5" color={colors.yellowAccent[400]} mb={3} textAlign="center">
                 KẾT QUẢ LỘ ĐO ẢO
               </Typography>
-              <Box display="grid" gridTemplateColumns="repeat(4, 1fr)" gap={3}>
+              <Box display="grid" gridTemplateColumns={{
+                xs: "repeat(1, 1fr)",  // Mobile: 1 card per row
+                sm: "repeat(2, 1fr)",  // Tablet: 2 cards per row
+                md: "repeat(4, 1fr)"   // Desktop: 4 cards per row
+              }} gap={3}>
                 <Box textAlign="center" p={2} 
                      sx={{ backgroundColor: colors.primary[500], borderRadius: 2 }}>
                   <Typography variant="h6" color={colors.grey[100]}>
