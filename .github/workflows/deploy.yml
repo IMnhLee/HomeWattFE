@@ -77,8 +77,6 @@ jobs:
                 - VITE_API_URL=http://${{ secrets.VPS_HOST }}:3000
               command: ["npm", "run", "preview", "--", "--host", "0.0.0.0"]
               restart: unless-stopped
-              networks:
-                - homewatt-network
             
             nginx:
               image: nginx:stable-alpine
@@ -92,12 +90,7 @@ jobs:
               depends_on:
                 - frontend
               restart: unless-stopped
-              networks:
-                - homewatt-network
 
-          networks:
-            homewatt-network:
-              external: true
           EOF
 
           # Create Nginx configuration file
