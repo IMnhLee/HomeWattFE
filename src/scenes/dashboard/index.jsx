@@ -188,7 +188,14 @@ const Dashboard = () => {
         type: 'scroll',
         textStyle: {
           color: colors.grey[100]
-        }
+        },
+        pageIconColor: colors.grey[100],         // Color of the active arrows
+        pageIconInactiveColor: colors.grey[300],        // Color of the inactive arrows
+        pageTextStyle: {
+          color: colors.primary[100] // Color of the page text
+        },
+        // pageIconSize: 12,                               // Size of the arrow icons
+        // pageButtonItemGap: 5
       },
       grid: {
         left: '3%',

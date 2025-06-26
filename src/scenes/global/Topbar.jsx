@@ -52,7 +52,7 @@ const Topbar = ({ broken, setToggled, toggled, setIsLoggedIn }) => {
         {/* PROFILE BUTTON */}
         {localStorage.getItem("logged") === "true" && (
           <IconButton 
-            onClick={() => window.location.href = "/profile"} 
+            onClick={() => navigate("/profile")} 
             aria-label="Profile"
           >
             <PersonOutlinedIcon />

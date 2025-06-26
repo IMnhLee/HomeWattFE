@@ -189,6 +189,14 @@ const ConsumptionPage = () => {
         textStyle: { color: colors.primary[100] },
         top: '0%',
         type: 'scroll',
+        // selectedMode: 'multiple',
+        pageIconColor: colors.grey[100],         // Color of the active arrows
+        pageIconInactiveColor: colors.grey[300],        // Color of the inactive arrows
+        pageTextStyle: {
+          color: colors.primary[100] // Color of the page text
+        },
+        // pageIconSize: 12,                               // Size of the arrow icons
+        // pageButtonItemGap: 5
       },
       xAxis: {
         type: 'time',
