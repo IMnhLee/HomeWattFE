@@ -233,7 +233,7 @@ const Dashboard = () => {
   const getPieChartData = () => {
     if (chartView === 'energy') {
       return {
-        series: consumptionData.categoryDistribution.map(cat => parseFloat(cat.value.toLocaleString(undefined, {maximumFractionDigits: 2}))),
+        series: consumptionData.categoryDistribution.map(cat => parseFloat(cat.value)),
         labels: consumptionData.categoryDistribution.map(cat => cat.name),
         colors: consumptionData.categoryDistribution.map(cat => cat.color), // Use device colors
         unit: "kWh"
