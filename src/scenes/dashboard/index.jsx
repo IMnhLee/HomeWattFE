@@ -84,7 +84,7 @@ const Dashboard = () => {
         })).filter(item => item.value > 0); // Remove zero-consumption devices
         
         setConsumptionData({
-          total: total.toFixed(2),
+          total: total.toLocaleString(undefined, {maximumFractionDigits: 2}),
           cost: cost.toFixed(0),
           currentRate: currentRate,
           hourlyData,
@@ -160,10 +160,12 @@ const Dashboard = () => {
             const formattedValue = value.toLocaleString(undefined, {
               maximumFractionDigits: chartView === 'energy' ? 2 : 0
             });
-            
-            tooltip += `<div style="display: flex; align-items: center; margin: 3px 0">
-              <span style="display: inline-block; width: 10px; height: 10px; border-radius: 50%; background-color: ${param.color}; margin-right: 5px"></span>
-              <span>${param.seriesName}: ${formattedValue} ${unit}</span>
+            tooltip += `<div style="display: flex; justify-content: space-between; margin: 3px 0">
+              <div>
+                <span style="display: inline-block; width: 10px; height: 10px; border-radius: 50%; background-color: ${param.color}; margin-right: 5px"></span>
+                ${param.seriesName}
+              </div>
+              <div style="margin-left: 15px; font-weight: bold">${formattedValue} ${unit}</div>
             </div>`;
           });
           
@@ -231,7 +233,7 @@ const Dashboard = () => {
   const getPieChartData = () => {
     if (chartView === 'energy') {
       return {
-        series: consumptionData.categoryDistribution.map(cat => parseFloat(cat.value.toFixed(2))),
+        series: consumptionData.categoryDistribution.map(cat => parseFloat(cat.value.toLocaleString(undefined, {maximumFractionDigits: 2}))),
         labels: consumptionData.categoryDistribution.map(cat => cat.name),
         colors: consumptionData.categoryDistribution.map(cat => cat.color), // Use device colors
         unit: "kWh"

@@ -242,15 +242,15 @@ const ConsumptionPage = () => {
                   <span style="display: inline-block; width: 10px; height: 10px; border-radius: 50%; background-color: ${param.color}; margin-right: 5px"></span>
                   ${param.seriesName}
                 </div>
-                <div style="margin-left: 15px; font-weight: bold">${param.value[1].toFixed(2)} ${unitLabel}</div>
+                <div style="margin-left: 15px; font-weight: bold">${param.value[1].toLocaleString(undefined, {maximumFractionDigits: 2})} ${unitLabel}</div>
               </div>`;
               total += param.value[1];
             });
             
             content += `<div style="margin-top: 5px; border-top: 1px solid rgba(255,255,255,0.3); padding-top: 5px">
               <div style="display: flex; justify-content: space-between; font-weight: bold">
-                <div>Total</div>
-                <div style="margin-left: 15px">${total.toFixed(2)} ${unitLabel}</div>
+                <div>Tổng</div>
+                <div style="margin-left: 15px">${total.toLocaleString(undefined, {maximumFractionDigits: 2})} ${unitLabel}</div>
               </div>
             </div>`;
             
@@ -516,7 +516,7 @@ const ConsumptionPage = () => {
             </Tooltip>
           </Box>
           <Typography variant="h3" fontWeight="bold" sx={{ color: colors.greenAccent[500] }}>
-            {stats.total.toFixed(2)} {energyUnit}
+            {stats.total.toLocaleString(undefined, {maximumFractionDigits: 2})} {energyUnit}
           </Typography>
         </Box>
         
@@ -542,7 +542,7 @@ const ConsumptionPage = () => {
             </Tooltip>
           </Box>
           <Typography variant="h3" fontWeight="bold" sx={{ color: colors.redAccent[500] }}>
-            {stats.highest.value?.toFixed(2)} {energyUnit}
+            {stats.highest.value?.toLocaleString(undefined, {maximumFractionDigits: 2})} {energyUnit}
           </Typography>
           <Typography variant="body1" color={colors.grey[300]} sx={{ mt: 1 }}>
             {stats.highest.timestamp && (
@@ -592,7 +592,7 @@ const ConsumptionPage = () => {
                 </Typography>
               </Box>
               <Typography variant="h3" fontWeight="bold" sx={{ color: colors.blueAccent[500] }}>
-                {stats.deviceBreakdown[0].total.toFixed(2)} {energyUnit}
+                {stats.deviceBreakdown[0].total.toLocaleString(undefined, {maximumFractionDigits: 2})} {energyUnit}
               </Typography>
               <Typography variant="body1" color={colors.grey[300]} sx={{ mt: 1 }}>
                 {((stats.deviceBreakdown[0].total / stats.total) * 100).toFixed(0)}% of total
@@ -668,7 +668,7 @@ const ConsumptionPage = () => {
                   Hiển thị {stats.deviceBreakdown.length} {stats.deviceBreakdown.length === 1 ? 'thiết bị' : 'thiết bị'}
                 </Typography>
                 <Typography variant="body2" color={colors.grey[300]}>
-                  {stats.total.toFixed(2)} {energyUnit} total
+                  {stats.total.toLocaleString(undefined, {maximumFractionDigits: 2})} {energyUnit} total
                 </Typography>
               </Box>
             )}
@@ -692,7 +692,7 @@ const ConsumptionPage = () => {
                     </Typography>
                     <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
                       <Typography variant="h5" sx={{ fontWeight: 'bold', color: colors.grey[100] }}>
-                        {device.total.toFixed(2)} {energyUnit}
+                        {device.total.toLocaleString(undefined, {maximumFractionDigits: 2})} {energyUnit}
                       </Typography>
                       <Typography variant="body1" color={colors.grey[300]}>
                         {((device.total / stats.total) * 100).toFixed(1)}%

@@ -95,7 +95,7 @@ const PieChart = React.memo(({ isDashboard = false,data, height='350px', customO
               showAlways: false,
               formatter: function (w) {
                 return (
-                  (w.globals.seriesTotals.reduce((a, b) => a + b, 0)).toFixed(1) +
+                  (w.globals.seriesTotals.reduce((a, b) => a + b, 0)).toLocaleString(undefined, {maximumFractionDigits: 1}) +
                   " " + chartData.unit
                 );
               },
@@ -104,7 +104,7 @@ const PieChart = React.memo(({ isDashboard = false,data, height='350px', customO
             value: {
               show: true,
               formatter: function (val) {
-                return Number(val).toFixed(2) + " " + chartData.unit
+                return Number(val).toLocaleString(undefined, {maximumFractionDigits: 2}) + " " + chartData.unit
               },
               color: colors.grey[100], // Màu chữ
             },
@@ -116,7 +116,7 @@ const PieChart = React.memo(({ isDashboard = false,data, height='350px', customO
       decimalsInFloat: 1,
       labels: {
         formatter: function (value) {
-          return value.toFixed(1) + " " + chartData.unit;
+          return value.toLocaleString(undefined, {maximumFractionDigits: 1}) + " " + chartData.unit;
         },
         style: {
           colors: colors.grey[100], // Màu chữ của trục y
