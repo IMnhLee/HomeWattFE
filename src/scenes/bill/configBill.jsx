@@ -68,7 +68,7 @@ const ConfigBill = () => {
         { max: 0 };
       
       setNewTier({
-        min: lastTier.max !== null ? lastTier.max : 0,
+        min: lastTier.max !== null ? lastTier.max + 1 : 0,
         max: null,
         price: 0,
         name: `Tier ${nextStep}`,
