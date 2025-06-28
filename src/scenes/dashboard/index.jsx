@@ -12,7 +12,7 @@ import energyApi from "../../services/energy"; // Import the energy API
 
 // Device colors palette (used for API data)
 const DEVICE_COLORS = [
-  "#6870fa", "#4cceac", "#ffcc00", "#db4f4a", "#a3a3a3", 
+  "#6870fa", "#4cceac", "#ffcc00", "#db4f4a", 
   "#7e57c2", "#26c6da", "#ff7043", "#008080", "#ff69b4",
   "#8a2be2", "#00ff00", "#ff4500", "#4b0082", "#ffd700",
   "#00bfff", "#ff1493", "#00ced1", "#ff6347", "#7fff00"
