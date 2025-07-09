@@ -945,7 +945,7 @@ const ConfigBill = () => {
                       gridColumn: { xs: "span 1", sm: "span 1", md: "span 1" } 
                     }}
                   >
-                    <Typography variant={isMobile ? "body2" : "body1"} mr={1}>Percentage:</Typography>
+                    <Typography variant={isMobile ? "body2" : "body1"} mr={1}>Phần trăm:</Typography>
                     <Typography variant={isMobile ? "body2" : "body1"} fontWeight="medium">
                       {item.percentage}%
                     </Typography>
@@ -959,7 +959,7 @@ const ConfigBill = () => {
                       gridColumn: { xs: "span 1", sm: "span 1", md: "span 1" } 
                     }}
                   >
-                    <Typography variant={isMobile ? "body2" : "body1"} mr={1}>Price:</Typography>
+                    <Typography variant={isMobile ? "body2" : "body1"} mr={1}>Giá:</Typography>
                     <Typography 
                       variant={isMobile ? "body2" : "body1"} 
                       fontWeight="medium" 
